@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <title>Connect 4</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔴</text></svg>" />
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+    <!-- ================================================================== -->
+    <!-- SCREEN 1 — Lobby: register or pick existing player                 -->
+    <!-- ================================================================== -->
+    <section id="screen-lobby" class="screen active">
+        <div class="hero">
+            <h1>Connect <span class="accent">4</span></h1>
+            <p class="subtitle">Real-Time Prototype</p>
+        </div>
+
+        <div class="card" id="stats-card">
+            <div class="live-stats">
+                <span><strong id="stat-games">0</strong> active games</span>
+                <span class="dot-sep"></span>
+                <span><strong id="stat-players">0</strong> players online</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Enter your name</h2>
+            <form id="form-register">
+                <input id="input-username" type="text" placeholder="Username" maxlength="64" autocomplete="off"
+                    required />
+                <button type="submit">Play</button>
+            </form>
+            <p id="lobby-error" class="error"></p>
+        </div>
+
+        <div class="card" id="leaderboard-card">
+            <h2>Leaderboard</h2>
+            <ol id="leaderboard-list"></ol>
+        </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- SCREEN 2 — Game lobby: create or join a game                       -->
+    <!-- ================================================================== -->
+    <section id="screen-games" class="screen">
+        <h1>Hi, <span id="display-username" class="accent"></span></h1>
+
+        <div class="card" id="player-stats-card" style="display:none">
+            <h2>Your Stats</h2>
+            <div class="stats-grid" id="stats-grid"></div>
+        </div>
+
+        <div class="card">
+            <h2>Create a new game</h2>
+            <button id="btn-create-game">New Game</button>
+            <button id="btn-matchmaking" class="secondary">Find Opponent</button>
+        </div>
+
+        <div class="card" id="matchmaking-card" style="display:none">
+            <h2>Finding an opponent…</h2>
+            <p class="muted" id="matchmaking-status">Searching for players near your skill level</p>
+            <div class="spinner"></div>
+            <button id="btn-cancel-matchmaking" class="secondary small">Cancel</button>
+        </div>
+
+        <div class="card">
+            <h2>Join a game</h2>
+            <div id="waiting-games-list" class="game-list">
+                <p class="muted">Loading…</p>
+            </div>
+            <button id="btn-refresh-games" class="secondary">Refresh</button>
+        </div>
+
+        <div class="card" id="waiting-card" style="display:none">
+            <h2>Waiting for opponent…</h2>
+            <p>Share this Game ID:</p>
+            <code id="waiting-game-id"></code>
+            <div class="spinner"></div>
+            <button id="btn-cancel-wait" class="secondary small">Cancel</button>
+        </div>
+
+        <button id="btn-toggle-leaderboard" class="secondary">Leaderboard <span id="leaderboard-arrow"
+                class="toggle-arrow">▶</span></button>
+
+        <div class="card" id="lobby-leaderboard-card" style="display:none">
+            <h2>Leaderboard</h2>
+            <ol id="lobby-leaderboard-list"></ol>
+        </div>
+
+        <div class="card" id="history-card" style="display:none">
+            <h2>Game History</h2>
+            <div id="history-list" class="game-list"></div>
+        </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- SCREEN 3 — The actual game board                                   -->
+    <!-- ================================================================== -->
+    <section id="screen-game" class="screen">
+        <div class="game-header">
+            <span id="game-status" class="status">Connecting…</span>
+            <button id="btn-leave" class="secondary small">Leave</button>
+        </div>
+
+        <div class="game-layout">
+            <div class="players-panel">
+                <div class="player-card" id="player1-card">
+                    <div class="player-card-dot"></div>
+                    <div class="player-card-info">
+                        <span class="player-card-label">Player 1</span>
+                        <span class="player-card-status">Waiting…</span>
+                    </div>
+                </div>
+                <div class="player-card" id="player2-card">
+                    <div class="player-card-dot"></div>
+                    <div class="player-card-info">
+                        <span class="player-card-label">Player 2</span>
+                        <span class="player-card-status">Waiting…</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="board-container">
+                <div id="hover-row" class="hover-row"></div>
+                <div id="board" class="board"></div>
+            </div>
+        </div>
+
+        <div id="toast-container"></div>
+
+        <div id="game-over-banner" class="banner" style="display:none">
+            <h2 id="game-over-text"></h2>
+            <p id="rematch-status" class="muted" style="display:none"></p>
+            <button id="btn-new-game">Play Again</button>
+        </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- SCREEN 4 — Game replay                                             -->
+    <!-- ================================================================== -->
+    <section id="screen-replay" class="screen">
+        <div class="game-header">
+            <span class="status">Game Replay</span>
+            <button id="btn-back-to-lobby" class="secondary small">Back</button>
+        </div>
+
+        <div id="replay-board-container">
+            <div id="replay-board" class="board"></div>
+        </div>
+
+        <div class="replay-legend">
+            <span class="replay-legend-dot p1-dot"></span><span>Player 1</span>
+            <span class="replay-legend-dot p2-dot"></span><span>Player 2</span>
+        </div>
+
+        <div class="replay-controls">
+            <button id="btn-replay-start" class="secondary small">|&lt;</button>
+            <button id="btn-replay-prev" class="secondary small">&lt;</button>
+            <span id="replay-move-info" class="muted">Move 0 / 0</span>
+            <button id="btn-replay-next" class="secondary small">&gt;</button>
+            <button id="btn-replay-end" class="secondary small">&gt;|</button>
+        </div>
+
+        <div id="replay-slider-container">
+            <input type="range" id="replay-slider" min="0" max="0" value="0" />
+        </div>
+    </section>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
