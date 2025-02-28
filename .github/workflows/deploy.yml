@@ -1,0 +1,107 @@
+name: Deploy to AWS
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "CDK action to perform"
+        required: true
+        type: choice
+        options:
+          - deploy
+          - destroy
+        default: deploy
+      region:
+        description: "AWS region (e.g. eu-central-1)"
+        required: true
+        default: eu-central-1
+      free_tier:
+        description: "Free tier mode (no ALB = $0/mo, but unstable IP)"
+        required: true
+        type: choice
+        options:
+          - "true"
+          - "false"
+        default: "true"
+
+# Only one deploy at a time
+concurrency:
+  group: connect4-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: ${{ inputs.action == 'destroy' && 'Destroy' || 'Deploy' }} → ${{ inputs.region }} (${{ inputs.free_tier == 'true' && '$0' || '~$16/mo' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js (for CDK CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r infra/requirements.txt
+          pip install ".[dev]"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.region }}
+
+      - name: CDK Bootstrap (first-time only)
+        if: inputs.action == 'deploy'
+        run: cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ inputs.region }}
+
+      - name: CDK Diff (preview changes)
+        if: inputs.action == 'deploy'
+        run: cdk diff --no-path-metadata -c free_tier=${{ inputs.free_tier }} 2>&1 || true
+
+      - name: CDK Deploy
+        if: inputs.action == 'deploy'
+        run: cdk deploy --require-approval never --outputs-file cdk-outputs.json -c free_tier=${{ inputs.free_tier }}
+
+      - name: Show deployment outputs
+        if: inputs.action == 'deploy'
+        run: |
+          echo "========================================="
+          echo "  Deployment Complete!"
+          echo "========================================="
+          cat cdk-outputs.json | python3 -m json.tool
+          echo ""
+          echo "App URL:"
+          python3 -c "
+          import json
+          with open('cdk-outputs.json') as f:
+              outputs = json.load(f)
+          for stack in outputs.values():
+              for key, val in stack.items():
+                  print(f'  {key}: {val}')
+          "
+
+      - name: CDK Destroy
+        if: inputs.action == 'destroy'
+        run: cdk destroy --force -c free_tier=${{ inputs.free_tier }}
+
+      - name: Upload CDK outputs
+        if: inputs.action == 'deploy'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdk-outputs
+          path: cdk-outputs.json
+          retention-days: 30
