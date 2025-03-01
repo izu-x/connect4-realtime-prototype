@@ -737,7 +737,6 @@ function buildBoard() {
             case "slam": {
                 const dur = (0.28 + fallDistance * 0.04).toFixed(2);
                 cell.style.animation = `dropSlam ${dur}s cubic-bezier(0.55, 0, 1, 0.45) forwards`;
-                spawnEffectLabel(cell, '\u{1F4A5} SLAM');
                 /* Board container quakes on impact */
                 cell.addEventListener("animationend", () => {
                     const bc = $("#board-container");
@@ -754,7 +753,6 @@ function buildBoard() {
             case "slam_hard": {
                 const dur = (0.28 + fallDistance * 0.04).toFixed(2);
                 cell.style.animation = `dropSlam ${dur}s cubic-bezier(0.55, 0, 1, 0.45) forwards`;
-                spawnEffectLabel(cell, '\u{1F4A5} CRACK');
                 cell.addEventListener("animationend", () => {
                     const bc = $("#board-container");
                     bc.classList.add("shaking");
@@ -765,7 +763,6 @@ function buildBoard() {
             case "slam_ultra": {
                 const dur = (0.24 + fallDistance * 0.032).toFixed(2);
                 cell.style.animation = `dropSlam ${dur}s cubic-bezier(0.55, 0, 1, 0.45) forwards`;
-                spawnEffectLabel(cell, '\u{1F30B} EARTHQUAKE');
                 cell.addEventListener("animationend", () => {
                     const bc = $("#board-container");
                     bc.classList.add("vibrating");
@@ -817,18 +814,6 @@ function buildBoard() {
     }
 
     /* Spawn a floating effect label near a cell (e.g. "SLAM", "EARTHQUAKE") */
-    function spawnEffectLabel(cell, text) {
-        const rect = cell.getBoundingClientRect();
-        const el = document.createElement("span");
-        el.className = "taunt-emoji";
-        el.textContent = text;
-        el.style.left = rect.left + rect.width / 2 + "px";
-        el.style.top = rect.top + "px";
-        el.style.fontSize = "24px";
-        document.body.appendChild(el);
-        el.addEventListener("animationend", () => el.remove(), { once: true });
-    }
-
     /* Column hover highlight */
     function highlightColumn(col) {
         if (state.gameOver) return;
