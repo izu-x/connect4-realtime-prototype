@@ -1,0 +1,38 @@
+# CDK output (multi-GB)
+cdk.out/
+
+# Python virtual environments
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Tools & dev
+.pytest_cache/
+.ruff_cache/
+.vscode/
+.git/
+.github/
+tests/
+
+# Runtime artifacts
+events.log
+.env
+
+# Docs & config not needed at runtime
+docs/
+infra/
+cdk.json
+cdk.context.json
+cdk-outputs.json
+docker-compose.yml
+Dockerfile
+LICENSE
+README.md
+setup.sh
+.pre-commit-config.yaml
+.mise.toml
+.gitignore
+.dockerignore
