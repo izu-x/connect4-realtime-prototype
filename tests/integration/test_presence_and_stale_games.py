@@ -244,11 +244,18 @@ async def test_matchmaking_queue_cleared_on_startup() -> None:
     lifespan handler.  This test invokes the lifespan directly to verify
     that the startup code path actually deletes stale queue entries.
     """
-    from unittest.mock import AsyncMock, patch
+    from contextlib import asynccontextmanager
+    from unittest.mock import AsyncMock, MagicMock, patch
 
     from app.main import app as fastapi_app
     from app.main import lifespan
     from tests.conftest import fake_redis_instance
+
+    @asynccontextmanager
+    async def _fake_session():
+        yield AsyncMock()
+
+    mock_factory = MagicMock(side_effect=_fake_session)
 
     # Seed stale entries that simulate players left in the queue from a previous session
     await fake_redis_instance.zadd("matchmaking:queue", {"ghost-player-1": 1000.0, "ghost-player-2": 1100.0})
@@ -256,11 +263,11 @@ async def test_matchmaking_queue_cleared_on_startup() -> None:
 
     # Run the real lifespan startup with the DB session mocked out (no DB needed)
     with (
-        patch("app.main.async_session_factory", return_value=AsyncMock()),
+        patch("app.database.async_session_factory", mock_factory),
         patch("app.main.cleanup_stale_games", new=AsyncMock()),
         patch("app.main.get_redis", return_value=fake_redis_instance),
         patch("app.main.close_redis", new=AsyncMock()),
-        patch("app.main.close_db", new=AsyncMock()),
+        patch("app.database.close_db", new=AsyncMock()),
     ):
         async with lifespan(fastapi_app):
             # After the startup phase the stale queue must be gone

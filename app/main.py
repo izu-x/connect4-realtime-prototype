@@ -10,8 +10,8 @@ from fastapi import Body, FastAPI, status
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app import database as _db
 from app.connection_manager import manager
-from app.database import async_session_factory, close_db
 from app.repository import cleanup_stale_games
 from app.routes import games as games_router
 from app.routes import matchmaking as matchmaking_router
@@ -23,9 +23,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ANN001
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ANN001
     """Application lifespan handler — cleans stale state on startup, closes connections on shutdown."""
-    async with async_session_factory() as session:
+    async with _db.async_session_factory() as session:
         await cleanup_stale_games(session)
         await session.commit()
 
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ANN001
 
     yield
     await close_redis()
-    await close_db()
+    await _db.close_db()
 
 
 app: FastAPI = FastAPI(

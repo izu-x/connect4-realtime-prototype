@@ -318,6 +318,8 @@ def test_full_ws_game_lifecycle_win_and_elo() -> None:
     with (
         patch("app.store._redis_client", fake_redis_instance),
         patch("app.store.get_redis", return_value=fake_redis_instance),
+        patch("app.database.async_session_factory", _mock_session_factory(mock_session)),
+        patch("app.main.cleanup_stale_games", AsyncMock()),
         patch("app.websocket.async_session_factory", _mock_session_factory(mock_session)),
         patch("app.websocket.record_move", mock_record),
         patch("app.websocket.finish_game", mock_finish),
@@ -407,6 +409,8 @@ def test_ws_game_rematch_and_replay() -> None:
     with (
         patch("app.store._redis_client", fake_redis_instance),
         patch("app.store.get_redis", return_value=fake_redis_instance),
+        patch("app.database.async_session_factory", _mock_session_factory(mock_session)),
+        patch("app.main.cleanup_stale_games", AsyncMock()),
         patch("app.websocket.async_session_factory", _mock_session_factory(mock_session)),
         patch("app.websocket.record_move", mock_record),
         patch("app.websocket.finish_game", mock_finish),
@@ -496,6 +500,8 @@ def test_ws_rematch_stats_counted_independently() -> None:
     with (
         patch("app.store._redis_client", fake_redis_instance),
         patch("app.store.get_redis", return_value=fake_redis_instance),
+        patch("app.database.async_session_factory", _mock_session_factory(mock_session)),
+        patch("app.main.cleanup_stale_games", AsyncMock()),
         patch("app.websocket.async_session_factory", _mock_session_factory(mock_session)),
         patch("app.websocket.record_move", mock_record),
         patch("app.websocket.finish_game", mock_finish),
@@ -845,7 +851,7 @@ def test_ws_two_player_broadcast_symmetry() -> None:
     with (
         patch("app.store._redis_client", fake_redis_instance),
         patch("app.store.get_redis", return_value=fake_redis_instance),
-        patch("app.main.async_session_factory", _mock_session_factory(mock_session)),
+        patch("app.database.async_session_factory", _mock_session_factory(mock_session)),
         patch("app.main.cleanup_stale_games", AsyncMock()),
         patch("app.websocket.async_session_factory", _mock_session_factory(mock_session)),
         patch("app.websocket.record_move", mock_record),

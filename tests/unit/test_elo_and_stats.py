@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -365,7 +366,7 @@ async def test_elo_draw_never_goes_negative() -> None:
 @pytest.mark.anyio
 async def test_stats_abandoned_game_not_counted_as_loss() -> None:
     """A game marked FINISHED with no winner should not inflate the loss count."""
-    from datetime import UTC, datetime, timedelta
+    from datetime import datetime, timedelta
 
     from app.db_models import GameStatus
     from app.repository import get_player_stats
@@ -410,7 +411,7 @@ async def test_stats_abandoned_game_not_counted_as_loss() -> None:
 @pytest.mark.anyio
 async def test_stats_abandoned_game_not_counted_as_loss_only_abandoned() -> None:
     """A player with only abandoned games should show zero stats."""
-    from datetime import UTC, datetime, timedelta
+    from datetime import datetime, timedelta
 
     from app.db_models import GameStatus
     from app.repository import get_player_stats
@@ -446,7 +447,7 @@ async def test_stats_abandoned_game_not_counted_as_loss_only_abandoned() -> None
 @pytest.mark.anyio
 async def test_stats_abandoned_game_does_not_break_win_streak() -> None:
     """An abandoned game must not interrupt a player's current win streak."""
-    from datetime import UTC, datetime, timedelta
+    from datetime import datetime, timedelta
 
     from app.db_models import GameStatus
     from app.repository import get_player_stats
