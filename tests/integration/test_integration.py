@@ -734,6 +734,11 @@ async def test_matchmaking_to_gameplay_pipeline(client: AsyncClient) -> None:
     """Full pipeline: two players matchmake → game created → moves via REST.
 
     Validates: matchmaking queuing → ELO-band matching → game creation → playable board.
+
+    Regression: previously, matchmaking created the DB game but never initialised
+    the Redis board (``save_game`` was missing).  This caused the first WS/REST
+    move to fail with a 404 / KeyError.  The test must NOT call
+    ``_seed_redis_board`` — the matchmaking route itself must initialise Redis.
     """
     alice_id = uuid.uuid4()
     bob_id = uuid.uuid4()
@@ -749,6 +754,8 @@ async def test_matchmaking_to_gameplay_pipeline(client: AsyncClient) -> None:
     assert resp_a.json()["status"] == "queued"
 
     # Bob joins → matched with Alice
+    # NOTE: create_game and join_game are mocked (DB layer) but save_game is NOT
+    # mocked — it must actually write the board to (Fake)Redis.
     with (
         patch("app.routes.matchmaking.get_player_by_id", new=AsyncMock(return_value=bob)),
         patch("app.routes.matchmaking.create_game", new=AsyncMock(return_value=_mock_game(game_id, alice_id))),
@@ -760,25 +767,113 @@ async def test_matchmaking_to_gameplay_pipeline(client: AsyncClient) -> None:
     assert match_body["status"] == "matched"
     matched_game_id = match_body["game_id"]
     assert matched_game_id == str(game_id)
-    _seed_redis_board(matched_game_id)
+
+    # ⚠ No _seed_redis_board() here — the matchmaking route must have done it.
+    # Verify Redis board exists (would have been None before the bug fix).
+    raw = fake_redis_instance._store.get(f"game:{matched_game_id}")
+    assert raw is not None, (
+        "Matchmaking must initialise the Redis board on match — "
+        "missing save_game() was the root cause of the blank-board production bug"
+    )
 
     # Alice discovers match via status polling
     resp_status = await client.get(f"/matchmaking/status/{alice_id}")
     assert resp_status.json()["status"] == "matched"
 
-    # Now play moves on the matched game via REST
+    # Now play moves on the matched game via REST — these would 404 before the fix
     p1_resp = await client.post(
         f"/games/{matched_game_id}/move",
         json={"game_id": matched_game_id, "player": 1, "column": 3},
     )
-    assert p1_resp.status_code == 200
+    assert p1_resp.status_code == 200, f"First move failed: {p1_resp.json()}"
     assert p1_resp.json()["row"] == 5
 
     p2_resp = await client.post(
         f"/games/{matched_game_id}/move",
         json={"game_id": matched_game_id, "player": 2, "column": 4},
     )
-    assert p2_resp.status_code == 200
+    assert p2_resp.status_code == 200, f"Second move failed: {p2_resp.json()}"
+
+
+# ---------------------------------------------------------------------------
+# 11b. Matchmaking → WebSocket play (no manual Redis seed)
+# ---------------------------------------------------------------------------
+
+
+def test_matchmaking_to_websocket_play() -> None:
+    """Full pipeline: matchmaking creates game → WS moves succeed.
+
+    Regression: the original production bug was that matchmaking created the
+    DB game but never called ``save_game`` to initialise the Redis board.
+    The first WS move then failed with KeyError, leaving the board blank.
+
+    This test exercises the *WebSocket* path (not REST) after matchmaking,
+    which is the primary play path in production.  It does NOT call
+    ``_seed_redis_board`` — the matchmaking endpoint must do it.
+    """
+    from starlette.testclient import TestClient as StarletteClient
+
+    alice_id = uuid.uuid4()
+    bob_id = uuid.uuid4()
+    game_id = uuid.uuid4()
+    game_id_str = str(game_id)
+
+    alice = _mock_player(alice_id, "alice", elo_rating=1000)
+    bob = _mock_player(bob_id, "bob", elo_rating=1100)
+    game_obj = _mock_game(game_id, alice_id, bob_id, "playing")
+
+    mock_session = AsyncMock()
+    mock_session.commit = AsyncMock()
+
+    with (
+        patch("app.store._redis_client", fake_redis_instance),
+        patch("app.store.get_redis", return_value=fake_redis_instance),
+    ):
+        sync_client = StarletteClient(app)
+
+        # ----- Phase 1: matchmaking via REST -----
+        # Alice joins
+        with patch("app.routes.matchmaking.get_player_by_id", new=AsyncMock(return_value=alice)):
+            resp_a = sync_client.post("/matchmaking/join", json={"player1_id": str(alice_id)})
+        assert resp_a.json()["status"] == "queued"
+
+        # Bob joins → matched (save_game runs for real against FakeRedis)
+        with (
+            patch("app.routes.matchmaking.get_player_by_id", new=AsyncMock(return_value=bob)),
+            patch("app.routes.matchmaking.create_game", new=AsyncMock(return_value=_mock_game(game_id, alice_id))),
+            patch("app.routes.matchmaking.join_game", new=AsyncMock(return_value=game_obj)),
+        ):
+            resp_b = sync_client.post("/matchmaking/join", json={"player1_id": str(bob_id)})
+        assert resp_b.json()["status"] == "matched"
+
+        # Verify Redis board exists — this was the root cause
+        assert (
+            fake_redis_instance._store.get(f"game:{game_id_str}") is not None
+        ), "Matchmaking must save_game() — this was the production bug"
+
+        # ----- Phase 2: play via WebSocket -----
+        with (
+            patch("app.websocket.async_session_factory", _mock_session_factory(mock_session)),
+            patch("app.websocket.record_move", AsyncMock()),
+            patch("app.websocket.get_game_by_id", AsyncMock(return_value=None)),
+            patch("app.websocket.get_player_by_id", AsyncMock(return_value=None)),
+            sync_client.websocket_connect(f"/ws/{game_id_str}") as ws1,
+            sync_client.websocket_connect(f"/ws/{game_id_str}") as ws2,
+        ):
+            # Player 1 drops in column 0
+            ws1.send_text(json.dumps({"player": 1, "column": 0}))
+            p1_data = _receive_non_status(ws1)
+            _receive_non_status(ws2)  # consume broadcast
+
+            assert p1_data["player"] == 1
+            assert p1_data["row"] == 5, "First move should land on bottom row"
+
+            # Player 2 drops in column 6
+            ws2.send_text(json.dumps({"player": 2, "column": 6}))
+            p2_data = _receive_non_status(ws2)
+
+            assert p2_data["player"] == 2
+            assert p2_data["row"] == 5
 
 
 # ---------------------------------------------------------------------------

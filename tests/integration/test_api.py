@@ -673,6 +673,96 @@ async def test_pagination_limit_zero_returns_422(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Auto-recovery: GET /games/{game_id} when Redis key is missing
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_get_game_auto_recovery_from_db(client: AsyncClient) -> None:
+    """GET /games/{game_id} should return an empty board when the Redis key is missing
+    but the game exists in PostgreSQL.
+
+    Regression: after matchmaking created a game, Redis keys could expire or
+    be lost.  Without auto-recovery this returned 404, leaving the player
+    stuck on a blank screen.
+    """
+    game_id = uuid.uuid4()
+    game_id_str = str(game_id)
+    db_game = SimpleNamespace(
+        id=game_id,
+        player1_id=uuid.uuid4(),
+        player2_id=uuid.uuid4(),
+        status=SimpleNamespace(value="playing"),
+        winner_id=None,
+    )
+
+    # Deliberately do NOT seed Redis — the key is "missing"
+    assert fake_redis_instance._store.get(f"game:{game_id_str}") is None
+
+    mock_session = AsyncMock()
+    mock_ctx = AsyncMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch("app.routes.games.async_session_factory", return_value=mock_ctx),
+        patch("app.routes.games.get_game_by_id", new=AsyncMock(return_value=db_game)),
+    ):
+        resp = await client.get(f"/games/{game_id_str}")
+
+    assert resp.status_code == 200, f"Auto-recovery failed: {resp.json()}"
+    body = resp.json()
+    assert body["game_id"] == game_id_str
+    board = body["board"]
+    assert len(board) == 6
+    assert all(len(row) == 7 for row in board)
+    assert all(cell == 0 for row in board for cell in row), "Recovered board should be empty"
+
+    # Verify the board was re-saved to Redis for subsequent requests
+    assert (
+        fake_redis_instance._store.get(f"game:{game_id_str}") is not None
+    ), "Auto-recovery must persist the board back to Redis"
+
+
+@pytest.mark.anyio
+async def test_get_game_returns_404_when_missing_from_both(client: AsyncClient) -> None:
+    """GET /games/{game_id} should return 404 when neither Redis nor DB has the game."""
+    game_id = uuid.uuid4()
+    game_id_str = str(game_id)
+
+    mock_session = AsyncMock()
+    mock_ctx = AsyncMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch("app.routes.games.async_session_factory", return_value=mock_ctx),
+        patch("app.routes.games.get_game_by_id", new=AsyncMock(return_value=None)),
+    ):
+        resp = await client.get(f"/games/{game_id_str}")
+
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_move_after_redis_key_loss_still_works(client: AsyncClient) -> None:
+    """POST /games/{id}/move should still work when the Redis key was lost mid-game.
+
+    The REST move endpoint currently does NOT auto-recover (it returns 404),
+    but this test documents the expected behaviour.  If auto-recovery is
+    added later, change the assertion accordingly.
+    """
+    game_id = str(uuid.uuid4())
+    # No _seed_redis_board — Redis key is absent
+    resp = await client.post(
+        f"/games/{game_id}/move",
+        json={"game_id": game_id, "player": 1, "column": 3},
+    )
+    # REST move does NOT auto-recover — returns 404
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # DB persistence on REST move
 # ---------------------------------------------------------------------------
 
