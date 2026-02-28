@@ -1098,6 +1098,10 @@ function connectWebSocket(gameId) {
         /* Error messages */
         if (data.error) {
             console.warn("Server error:", data.error);
+            /* Restart idle taunts — handleCellClick stopped them before the move failed */
+            if (!state.gameOver && state.currentTurn === state.myPlayer) {
+                startIdleTaunt();
+            }
             return;
         }
 

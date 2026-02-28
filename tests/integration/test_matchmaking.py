@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
+
+from app.store import get_redis
 
 PLAYER_ALICE_ID: uuid.UUID = uuid.uuid4()
 PLAYER_BOB_ID: uuid.UUID = uuid.uuid4()
@@ -420,3 +423,34 @@ async def test_matchmaking_leave_idempotent(client: AsyncClient) -> None:
     """Leaving when not in queue should succeed without error."""
     resp = await client.delete(f"/matchmaking/leave/{uuid.uuid4()}")
     assert resp.json()["status"] == "left"
+
+
+@pytest.mark.anyio
+async def test_matchmaking_match_initializes_redis_board(client: AsyncClient) -> None:
+    """When matchmaking creates a game, the board must be initialized in Redis."""
+    alice = _mock_player(PLAYER_ALICE_ID, "alice", elo_rating=1000)
+    bob = _mock_player(PLAYER_BOB_ID, "bob", elo_rating=1100)
+    game = _mock_game(GAME_ID, PLAYER_ALICE_ID, PLAYER_BOB_ID, "playing")
+
+    # Alice joins → queued
+    with patch("app.routes.matchmaking.get_player_by_id", new=AsyncMock(return_value=alice)):
+        await client.post("/matchmaking/join", json={"player1_id": str(PLAYER_ALICE_ID)})
+
+    # Bob joins → matched
+    with (
+        patch("app.routes.matchmaking.get_player_by_id", new=AsyncMock(return_value=bob)),
+        patch("app.routes.matchmaking.create_game", new=AsyncMock(return_value=_mock_game(GAME_ID, PLAYER_ALICE_ID))),
+        patch("app.routes.matchmaking.join_game", new=AsyncMock(return_value=game)),
+    ):
+        resp = await client.post("/matchmaking/join", json={"player1_id": str(PLAYER_BOB_ID)})
+
+    assert resp.json()["status"] == "matched"
+
+    # Verify that the board was saved to Redis
+    redis = await get_redis()
+    board_data = await redis.get(f"game:{GAME_ID}")
+    assert board_data is not None, "Matchmaking must initialize the Redis board on match"
+    board = json.loads(board_data)
+    assert len(board) == 6, "Board should have 6 rows"
+    assert all(len(row) == 7 for row in board), "Each row should have 7 columns"
+    assert all(cell == 0 for row in board for cell in row), "Board should be empty"

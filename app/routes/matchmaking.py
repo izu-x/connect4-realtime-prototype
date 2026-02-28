@@ -10,9 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.game import Connect4
 from app.models import GameCreate
 from app.repository import create_game, get_player_by_id, join_game
-from app.store import get_redis
+from app.store import get_redis, save_game
 
 MATCHMAKING_KEY: Final[str] = "matchmaking:queue"
 MATCHMAKING_RESULT_PREFIX: Final[str] = "matchmaking:result:"
@@ -98,6 +99,9 @@ async def matchmaking_join(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create matched game.",
             )
+
+        # Initialize empty board in Redis so the first WS move can load it
+        await save_game(redis, str(game.id), Connect4())
 
         # Store match result for the waiting player to discover
         result_payload = json.dumps(

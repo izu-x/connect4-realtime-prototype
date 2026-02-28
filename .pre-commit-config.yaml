@@ -20,7 +20,7 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: python3 -m pytest tests/ -x -q --timeout=30
+        entry: .venv/bin/python -m pytest tests/ -x -q --timeout=30
         language: system
         types: [python]
         pass_filenames: false
