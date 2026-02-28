@@ -719,9 +719,9 @@ async def test_get_game_auto_recovery_from_db(client: AsyncClient) -> None:
     assert all(cell == 0 for row in board for cell in row), "Recovered board should be empty"
 
     # Verify the board was re-saved to Redis for subsequent requests
-    assert (
-        fake_redis_instance._store.get(f"game:{game_id_str}") is not None
-    ), "Auto-recovery must persist the board back to Redis"
+    assert fake_redis_instance._store.get(f"game:{game_id_str}") is not None, (
+        "Auto-recovery must persist the board back to Redis"
+    )
 
 
 @pytest.mark.anyio

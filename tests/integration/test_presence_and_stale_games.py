@@ -271,9 +271,9 @@ async def test_matchmaking_queue_cleared_on_startup() -> None:
     ):
         async with lifespan(fastapi_app):
             # After the startup phase the stale queue must be gone
-            assert (
-                await fake_redis_instance.zcard("matchmaking:queue") == 0
-            ), "Lifespan startup should clear stale matchmaking queue entries"
+            assert await fake_redis_instance.zcard("matchmaking:queue") == 0, (
+                "Lifespan startup should clear stale matchmaking queue entries"
+            )
 
 
 @pytest.mark.anyio
@@ -321,6 +321,6 @@ async def test_solo_matchmaking_after_cleanup_is_queued(client: AsyncClient) -> 
         )
 
     assert resp.status_code == 200
-    assert (
-        resp.json()["status"] == "queued"
-    ), "Solo player after queue cleanup should be queued, not matched against a ghost"
+    assert resp.json()["status"] == "queued", (
+        "Solo player after queue cleanup should be queued, not matched against a ghost"
+    )

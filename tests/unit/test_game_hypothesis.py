@@ -85,9 +85,9 @@ def test_piece_count_equals_moves_made(columns: list[int]) -> None:
 def test_winner_and_draw_mutually_exclusive(columns: list[int]) -> None:
     """winner is not None and is_draw == True can never both be true simultaneously."""
     game, _ = _play_sequence(columns)
-    assert not (
-        game.winner is not None and game.is_draw
-    ), f"Both winner={game.winner} and is_draw=True set at the same time"
+    assert not (game.winner is not None and game.is_draw), (
+        f"Both winner={game.winner} and is_draw=True set at the same time"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -114,9 +114,9 @@ def test_winning_cells_contain_winner_value(columns: list[int]) -> None:
     game, _ = _play_sequence(columns)
     if game.winner is not None:
         for r, c in game.winning_cells:
-            assert (
-                game.board[r][c] == game.winner
-            ), f"winning_cells entry ({r},{c}) has value {game.board[r][c]}, expected {game.winner}"
+            assert game.board[r][c] == game.winner, (
+                f"winning_cells entry ({r},{c}) has value {game.board[r][c]}, expected {game.winner}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -129,9 +129,9 @@ def test_winning_cells_minimum_length(columns: list[int]) -> None:
     """winning_cells must hold at least WIN_LENGTH entries when there is a winner."""
     game, _ = _play_sequence(columns)
     if game.winner is not None:
-        assert (
-            len(game.winning_cells) >= WIN_LENGTH
-        ), f"Winning line has only {len(game.winning_cells)} cells (need {WIN_LENGTH})"
+        assert len(game.winning_cells) >= WIN_LENGTH, (
+            f"Winning line has only {len(game.winning_cells)} cells (need {WIN_LENGTH})"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -158,9 +158,9 @@ def test_next_player_parity_matches_piece_count(columns: list[int]) -> None:
     game, moves_made = _play_sequence(columns)
     if game.winner is None and not game.is_draw:
         expected = 1 if moves_made % 2 == 0 else 2
-        assert (
-            game.next_player == expected
-        ), f"After {moves_made} moves expected next_player={expected}, got {game.next_player}"
+        assert game.next_player == expected, (
+            f"After {moves_made} moves expected next_player={expected}, got {game.next_player}"
+        )
 
 
 # ---------------------------------------------------------------------------
