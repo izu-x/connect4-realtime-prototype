@@ -613,7 +613,7 @@ This pattern is well-established (Socket.IO uses it with its Redis adapter) and 
 | `pytest-anyio` | >= 0.0 | Async test support (trio + asyncio) |
 | `anyio[trio]` | >= 4.12 | Backend for async test execution |
 | `httpx` | >= 0.28 | Async HTTP client for integration tests |
-| `ruff` | >= 0.15 | Linter and formatter |
+| `ruff` | 0.15.4 | Linter and formatter (pinned for CI consistency) |
 | `pre-commit` | >= 4.5 | Git hook management |
 
 ### Infrastructure dependencies
