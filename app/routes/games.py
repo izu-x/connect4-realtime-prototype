@@ -192,6 +192,9 @@ async def waiting_games(
 async def get_game(game_id: str) -> dict[str, Any]:
     """Return the current board state for a game from Redis.
 
+    Falls back to creating a fresh board if the Redis key expired but
+    the game still exists in PostgreSQL.
+
     Args:
         game_id: Unique identifier of the game to retrieve.
 
@@ -202,7 +205,23 @@ async def get_game(game_id: str) -> dict[str, Any]:
     try:
         game = await load_game(redis, game_id)
     except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not found or expired.")
+        # Auto-recover: if the game exists in the DB, re-create an empty board
+        try:
+            game_uuid = uuid.UUID(game_id)
+            async with async_session_factory() as db_session:
+                db_game = await get_game_by_id(db_session, game_uuid)
+                if db_game is not None:
+                    game = Connect4()
+                    await save_game(redis, game_id, game)
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Game not found or expired.",
+                    )
+        except HTTPException:
+            raise
+        except Exception:  # noqa: BLE001
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not found or expired.")
     return {
         "game_id": game_id,
         "board": game.board,

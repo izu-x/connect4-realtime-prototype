@@ -229,8 +229,9 @@ async def _handle_move(
         try:
             game = await load_game(redis, game_id)
         except KeyError:
-            await websocket.send_text(json.dumps({"error": "Game not found or expired."}))
-            return
+            # Auto-recover: Redis key expired or lost — create a fresh board
+            game = Connect4()
+            await save_game(redis, game_id, game)
         try:
             row = game.drop(player, column)
         except (ColumnFullError, GameOverError, InvalidTurnError, InvalidColumnError) as exc:
