@@ -27,7 +27,7 @@ class Base(DeclarativeBase):
     """Base class for all ORM models."""
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db() -> AsyncGenerator[AsyncSession]:
     """Yield an async database session, rolling back on error.
 
     Yields:
