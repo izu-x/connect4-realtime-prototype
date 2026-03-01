@@ -1,8 +1,28 @@
 # Connect 4 Real-Time Prototype
 
+[![CI](https://github.com/izu-x/connect4-realtime-prototype/actions/workflows/ci.yml/badge.svg)](https://github.com/izu-x/connect4-realtime-prototype/actions/workflows/ci.yml)
+![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
+![Tests](https://img.shields.io/badge/tests-267%20passed-brightgreen)
+![Ruff](https://img.shields.io/badge/linter-ruff%200.15.4-purple)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 > A prototype exploring the architectural gap between real-time state management (hot layer) and traceable event history (audit layer) — two concerns that are usually treated separately but interact in every move-based game.
 
-Demonstrates production-grade patterns for real-time stateful services.
+---
+
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Stack](#stack)
+- [Project Layout](#project-layout)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
+- [API Reference](#api-reference)
+- [WebSocket Protocol](#websocket-protocol)
+- [Testing](#testing)
+- [Development](#development)
+- [AWS Deployment](#aws-deployment)
+- [Trade-offs](#trade-offs)
 
 ---
 
@@ -41,14 +61,16 @@ Each layer is optimised for its access pattern: Redis for sub-millisecond reads 
 ## Stack
 
 | Layer | Technology | Why |
-|---|---|---|
+|-------|------------|-----|
 | Runtime | Python 3.13 | Async-native (`asyncio`); rich ecosystem for web and data tooling |
 | API | FastAPI + Uvicorn | WebSocket support, auto-OpenAPI, Pydantic v2, non-blocking I/O |
 | Hot state | Redis 7 | Sub-ms get/set; atomic `SETNX` distributed lock |
 | Cold data | PostgreSQL 17 | FK constraints, ACID transactions, complex leaderboard queries |
 | Audit | JSONL file | Immutable append; directly ingestible by Spark / EMR / Flink |
-| Infra | Docker Compose | One-command reproducible environment |
-| Quality | Ruff + pytest | Linting, formatting, critical-path test coverage |
+| Frontend | Vanilla JS + CSS | Single-page app, WebSocket-driven, zero build step |
+| Infra | Docker Compose / AWS CDK | One-command local dev; Fargate + RDS + ElastiCache in production |
+| Quality | Ruff 0.15.4 + pytest + Hypothesis | Linting, formatting, example + property-based test coverage |
+| CI/CD | GitHub Actions | Lint, format check, and full test suite on every push |
 
 ---
 
@@ -56,23 +78,47 @@ Each layer is optimised for its access pattern: Redis for sub-millisecond reads 
 
 ```
 app/
-├── game.py               # Connect 4 logic — pure Python, no I/O
+├── main.py               # FastAPI app creation, router includes, lifespan
+├── game.py               # Connect 4 logic — pure Python, zero I/O
 ├── models.py             # Pydantic request/response schemas
 ├── store.py              # Redis persistence + SETNX locking
-├── audit.py              # JSONL event logger
-├── connection_manager.py # WebSocket room tracking + presence
-├── websocket.py          # WebSocket route + broadcast handler
-├── db_models.py          # SQLAlchemy ORM models
-├── repository.py         # Database query layer
-├── database.py           # Async session factory
+├── audit.py              # JSONL event logger (nanosecond timestamps)
+├── connection_manager.py # WebSocket room/player tracking + presence
+├── websocket.py          # WebSocket endpoint: move, identify, rematch
+├── db_models.py          # SQLAlchemy ORM models (Player, Game, Move)
+├── repository.py         # Database query functions (no commits inside)
+├── database.py           # Async engine + session factory
 └── routes/
-    ├── games.py          # REST game endpoints
-    ├── players.py        # Player registration + ELO
-    └── matchmaking.py    # Matchmaking queue
+    ├── games.py          # Game CRUD + board state REST endpoints
+    ├── players.py        # Player registration, stats, ELO
+    └── matchmaking.py    # ELO-band matchmaking queue
 
-tests/     # pytest suite — no live services required (in-process fakes)
-infra/     # AWS CDK stack (Python) — see docs/AWS_DEPLOYMENT.md
-docs/      # Architecture rationale and deployment guide
+static/
+├── index.html            # Single-page app shell
+├── app.js                # All frontend logic (~1 700 lines)
+└── style.css             # CSS variables + glassmorphism theme
+
+tests/
+├── conftest.py           # FakeRedis, mock DB, shared fixtures
+├── unit/                 # Pure logic: game, models, store, audit, ELO
+│   ├── test_game.py
+│   ├── test_game_hypothesis.py   # Property-based tests (Hypothesis)
+│   ├── test_models.py
+│   ├── test_store.py
+│   ├── test_audit.py
+│   ├── test_connection_manager.py
+│   └── test_elo_and_stats.py
+└── integration/          # Full-stack journeys: HTTP → Redis → DB mock
+    ├── test_api.py
+    ├── test_integration.py
+    ├── test_websocket_persistence.py
+    ├── test_matchmaking.py
+    ├── test_concurrent_moves.py
+    └── test_presence_and_stale_games.py
+
+infra/                    # AWS CDK stack — see docs/AWS_DEPLOYMENT.md
+alembic/                  # Database migrations
+docs/                     # Architecture rationale + deployment guide
 ```
 
 ---
@@ -80,7 +126,7 @@ docs/      # Architecture rationale and deployment guide
 ## Quick Start
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/izu-x/connect4-realtime-prototype.git
 cd connect4-realtime-prototype
 ./setup.sh
 ```
@@ -107,28 +153,24 @@ curl -X POST http://localhost:8000/games/my-game/move \
 # Current board state
 curl http://localhost:8000/games/my-game
 
-# Real-time WebSocket (send JSON: {"player": 2, "column": 4})
+# Real-time WebSocket
 wscat -c ws://localhost:8000/ws/my-game
+# Send: {"player": 2, "column": 4}
 ```
 
 </details>
+
 ---
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and adjust values for local development:
-
-```bash
-cp .env.example .env
-```
-
 | Variable | Default | Description |
-|---|---|---|
+|----------|---------|-------------|
 | `DATABASE_URL` | `postgresql+asyncpg://user:password@localhost:5432/connect4` | PostgreSQL async connection string |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string |
 | `GAME_TTL_SECONDS` | `86400` | Board TTL in Redis (seconds); default = 24 h |
 
-> In AWS deployments, `DB_HOST`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`, and `REDIS_URL` are injected by CDK from Secrets Manager at runtime — no manual configuration needed.
+> In AWS deployments, database and Redis credentials are injected by CDK from Secrets Manager at runtime.
 
 ---
 
@@ -162,15 +204,9 @@ cp .env.example .env
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/matchmaking/join` | Enter the matchmaking queue |
+| `POST` | `/matchmaking/join` | Enter the ELO-band matchmaking queue |
+| `GET` | `/matchmaking/status/{player_id}` | Queue position or match result |
 | `DELETE` | `/matchmaking/leave/{player_id}` | Leave the matchmaking queue |
-| `GET` | `/matchmaking/status/{player_id}` | Your current queue position and size |
-
-### Real-time
-
-| Protocol | Endpoint | Description |
-|----------|----------|-------------|
-| `WS` | `/ws/{game_id}` | Game room — broadcasts every move to all participants |
 
 ### Platform
 
@@ -180,81 +216,89 @@ cp .env.example .env
 | `POST` | `/heartbeat` | Record a presence heartbeat for a player |
 | `GET` | `/docs` | Interactive OpenAPI reference |
 
-### Payloads
+### Move Payload
 
-**Make a move:**
 ```json
 { "game_id": "abc-123", "player": 1, "column": 3 }
 ```
+
 - `player`: `1` or `2`
-- `column`: `0` – `6` (left to right)
+- `column`: `0`–`6` (left to right)
 
-**WebSocket — make a move:**
-```json
-{ "player": 1, "column": 3 }
+---
+
+## WebSocket Protocol
+
+Connect to `ws://host/ws/{game_id}` and exchange JSON messages:
+
+| Direction | Message | Description |
+|-----------|---------|-------------|
+| Client → Server | `{"player": 1, "column": 3}` | Make a move |
+| Client → Server | `{"action": "identify", "player": 1, "username": "alice"}` | Bind identity to connection |
+| Client → Server | `{"action": "rematch", "player": 1}` | Vote for rematch (2 votes triggers reset) |
+| Server → Client | `{"player": 1, "column": 3, "row": 5, "board": [...], ...}` | Move broadcast |
+| Server → Client | `{"rematch": true}` | Rematch accepted — both clients reset |
+| Server → Client | `{"rematch_waiting": true}` | Opponent voted, waiting for your vote |
+| Server → Client | `{"type": "player_status", ...}` | Presence notification |
+
+> The first move from a WebSocket connection permanently binds that socket to the sending player number. Use separate connections for each player.
+
+---
+
+## Testing
+
+```bash
+pytest -v                  # 267 tests, ~2 s, no Redis/PostgreSQL needed
+pytest tests/unit/         # Unit tests only
+pytest tests/integration/  # Integration tests only
 ```
 
-**WebSocket — request rematch:**
-```json
-{ "action": "rematch", "player": 1 }
-```
-Once both players send this, the server creates a new game, keeps the same WebSocket `game_id` (room), and broadcasts `{ "rematch": true }` so clients can reset their local state.
+All tests run against an **in-process FakeRedis** and **mock DB sessions** — no external services required.
 
-**Move response:**
-```json
-{
-  "game_id": "abc-123",
-  "player": 1,
-  "column": 3,
-  "row": 5,
-  "board": [[0,0,...], ...],
-  "winner": null,
-  "draw": false,
-  "winning_cells": []
-}
-```
+| Suite | Tests | What it covers |
+|-------|-------|----------------|
+| Unit | 97 | Game logic, Pydantic models, store ops, audit, ELO, connection manager |
+| Property-based | 11 | Hypothesis-driven invariants on game logic |
+| Integration | 159 | Full HTTP/WS journeys, matchmaking pipelines, concurrent moves, auto-recovery |
 
 ---
 
 ## Development
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev]"    # Install with dev dependencies
 
-ruff check app/ tests/   # lint
-ruff format app/ tests/  # format
+ruff check app/ tests/     # Lint
+ruff format app/ tests/    # Format
 
-pytest -v  # no Redis or PostgreSQL required
+pytest -v                  # Run all tests
+
+alembic upgrade head       # Apply database migrations
+alembic revision --autogenerate -m "description"  # Generate migration
 ```
+
+Pre-commit hooks run automatically on `git commit`: trailing whitespace, YAML/TOML checks, ruff lint + format, and the full test suite.
 
 ---
 
-## API
+## AWS Deployment
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/games/{game_id}/move` | `POST` | Make a move; returns full board + win/draw flags |
-| `/games/{game_id}` | `GET` | Current board state |
-| `/ws/{game_id}` | `WS` | Real-time game room — broadcasts every move to all participants |
-| `/players` | `POST` | Register a player |
-| `/players/{id}/stats` | `GET` | ELO rating + win/loss record |
-| `/matchmaking/join` | `POST` | Enter the matchmaking queue |
-| `/docs` | `GET` | Interactive OpenAPI reference |
+```bash
+cdk deploy --profile <your-profile> --context free_tier=true
+```
 
-**Move payload**: `{"player": 1, "column": 3}` — column `0–6`, player `1 or 2`.
-
-**WebSocket rematch**: send `{"action": "rematch", "player": 1}` (both players must vote).
+Deploys to ECS Fargate with RDS PostgreSQL and ElastiCache Redis. See [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md) for full details.
 
 ---
 
 ## Trade-offs
 
 | Decision | Trade-off | Production path |
-|---|---|---|
+|----------|-----------|-----------------|
 | File-based audit log | Not durable across container restarts | Kafka / Kinesis producer; same event schema |
 | SETNX lock (single Redis node) | Correct for single-node only | Redlock for multi-node HA |
-| JSON board serialisation | Human-readable, ~120 B | MessagePack for ~5× smaller payload |
+| JSON board serialisation | Human-readable, ~120 B | MessagePack for ~5x smaller payload |
 | In-memory `ConnectionManager` | Breaks with multiple app instances | Redis Pub/Sub fan-out per game channel |
+| Vanilla JS frontend | No build step, fast iteration | React/Vue for complex UI state |
 
 For full architecture rationale see [`docs/TECHNICAL_DECISIONS.md`](docs/TECHNICAL_DECISIONS.md).
-For AWS deployment see [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md).
