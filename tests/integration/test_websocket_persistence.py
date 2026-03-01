@@ -530,6 +530,100 @@ def test_ws_missing_column_key_sends_error() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Auto-recovery: WS move when Redis key is missing
+# ---------------------------------------------------------------------------
+
+
+def test_ws_move_auto_recovers_when_redis_key_missing() -> None:
+    """A WS move should succeed even when the Redis board key is absent.
+
+    Regression: if matchmaking created the DB game but never called
+    ``save_game`` (the bug that shipped to production), or if the Redis
+    key expired mid-game, ``_handle_move`` should auto-create a fresh
+    board instead of returning an error or hanging.
+    """
+    fake_redis_instance.reset()
+    # Deliberately do NOT call _seed_redis_board() — key is missing
+    assert fake_redis_instance._store.get(f"game:{_GAME_ID}") is None
+
+    mock_session = AsyncMock()
+    mock_session.commit = AsyncMock()
+    mock_record = AsyncMock()
+    mock_get_game = AsyncMock(return_value=None)
+
+    with (
+        patch("app.store._redis_client", fake_redis_instance),
+        patch("app.store.get_redis", return_value=fake_redis_instance),
+        patch("app.websocket.async_session_factory", _mock_session_factory(mock_session)),
+        patch("app.websocket.record_move", mock_record),
+        patch("app.websocket.get_game_by_id", mock_get_game),
+        patch("app.websocket.get_player_by_id", AsyncMock(return_value=None)),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/{_GAME_ID}") as ws:
+            ws.send_text(json.dumps({"player": 1, "column": 3}))
+            data = _receive_non_status(ws)
+
+    # Move should succeed — auto-recovery creates a fresh board
+    assert "error" not in data, f"Move should auto-recover but got error: {data}"
+    assert data["player"] == 1
+    assert data["column"] == 3
+    assert data["row"] == 5  # bottom row of fresh board
+    mock_record.assert_awaited_once()
+
+    # Verify the board was persisted to Redis after auto-recovery
+    assert (
+        fake_redis_instance._store.get(f"game:{_GAME_ID}") is not None
+    ), "Auto-recovery must save the board to Redis so subsequent moves work"
+
+
+def test_ws_two_moves_after_auto_recovery() -> None:
+    """After auto-recovery, a second move from player 2 should also work.
+
+    This end-to-end test ensures the auto-recovered board is truly
+    playable, not just a one-shot fix.
+    """
+    fake_redis_instance.reset()
+    # No _seed_redis_board — trigger auto-recovery on first move
+
+    mock_session = AsyncMock()
+    mock_session.commit = AsyncMock()
+    mock_record = AsyncMock()
+    mock_get_game = AsyncMock(return_value=None)
+
+    with (
+        patch("app.store._redis_client", fake_redis_instance),
+        patch("app.store.get_redis", return_value=fake_redis_instance),
+        patch("app.websocket.async_session_factory", _mock_session_factory(mock_session)),
+        patch("app.websocket.record_move", mock_record),
+        patch("app.websocket.get_game_by_id", mock_get_game),
+        patch("app.websocket.get_player_by_id", AsyncMock(return_value=None)),
+    ):
+        client = TestClient(app)
+        with (
+            client.websocket_connect(f"/ws/{_GAME_ID}") as ws1,
+            client.websocket_connect(f"/ws/{_GAME_ID}") as ws2,
+        ):
+            # Player 1 moves — triggers auto-recovery
+            ws1.send_text(json.dumps({"player": 1, "column": 0}))
+            p1_data = _receive_non_status(ws1)
+            # Also read the broadcast on ws2
+            _receive_non_status(ws2)
+
+            assert p1_data["player"] == 1
+            assert p1_data["row"] == 5
+
+            # Player 2 moves — should work on the recovered board
+            ws2.send_text(json.dumps({"player": 2, "column": 6}))
+            p2_data = _receive_non_status(ws2)
+
+    assert "error" not in p2_data, f"Second move failed: {p2_data}"
+    assert p2_data["player"] == 2
+    assert p2_data["column"] == 6
+    assert p2_data["row"] == 5
+
+
+# ---------------------------------------------------------------------------
 # Rematch edge cases
 # ---------------------------------------------------------------------------
 
