@@ -69,6 +69,7 @@ flowchart TD
 ## Repository Pattern
 
 **Functions, not a class.** All `app/repository.py` functions follow:
+
 ```python
 async def create_game(session: AsyncSession, player1_id: uuid.UUID) -> GameModel:
     """..."""
@@ -77,6 +78,7 @@ async def create_game(session: AsyncSession, player1_id: uuid.UUID) -> GameModel
     await session.flush()
     return game
 ```
+
 - Never commit inside repository functions — the caller handles commit.
 - REST endpoints use `Depends(get_db)` which auto-commits.
 - WebSocket handler creates sessions with `async with async_session_factory() as db_session` and commits manually.
@@ -84,6 +86,7 @@ async def create_game(session: AsyncSession, player1_id: uuid.UUID) -> GameModel
 ## WebSocket ConnectionManager (`app/connection_manager.py`)
 
 Singleton in-memory manager with 4 dicts:
+
 - `_rooms: dict[str, list[WebSocket]]` — game_id → connections
 - `_player_map: dict[str, dict[WebSocket, int]]` — game → ws → player number
 - `_usernames: dict[str, dict[int, str]]` — game → player → name
@@ -94,10 +97,14 @@ No Redis pub/sub — single-process only.
 
 ### WebSocket identity binding — critical gotcha
 
-When a client sends `{"player": 1, "column": 0}` as its **first** message, that WebSocket connection is **permanently bound** to player 1 (`app/websocket.py` lines ~51-53). Any subsequent message from that socket claiming to be player 2 is rejected silently. This means:
+When a client sends `{"player": 1, "column": 0}` as its **first** message, that WebSocket
+connection is **permanently bound** to player 1 (`app/websocket.py` lines ~51-53). Any subsequent
+message from that socket claiming to be player 2 is rejected silently. This means:
 
-- **In tests**: use two separate WS connections — `ws1` for P1 moves, `ws2` for P2 moves. Never send P2 moves from `ws1` or the test will hang forever.
+- **In tests**: use two separate WS connections — `ws1` for P1 moves, `ws2` for P2 moves.
+  Never send P2 moves from `ws1` or the test will hang forever.
 - **Pattern for multi-move tests**:
+
   ```python
   moves = [(1, 0, ws1), (2, 6, ws2), (1, 1, ws1), ...]
   for player, column, sender in moves:
@@ -108,16 +115,23 @@ When a client sends `{"player": 1, "column": 0}` as its **first** message, that 
 
 Run: `pytest -v` (no Redis/PostgreSQL needed)
 
-### Mock infrastructure in `tests/conftest.py`:
-- **`FakeRedis`** — hand-rolled in-memory class (not fakeredis library). Supports: `get`, `set` (with `nx`, `ex`), `delete`, `zadd`, `zrangebyscore`, `zrem`, `zrank`, `zcard`, `aclose`. Add new methods here if new Redis commands are used.
+### Mock infrastructure in `tests/conftest.py`
+
+- **`FakeRedis`** — hand-rolled in-memory class (not fakeredis library). Supports: `get`, `set`
+  (with `nx`, `ex`), `delete`, `zadd`, `zrangebyscore`, `zrem`, `zrank`, `zcard`, `aclose`.
+  Add new methods here if new Redis commands are used.
 - **Mock DB**: `app.dependency_overrides[get_db]` yields `AsyncMock()`
 - **Autouse fixture** `_reset_test_state`: clears FakeRedis + ConnectionManager between tests
 
-### Two test styles:
-1. **Async HTTP** (`test_api.py`, `test_matchmaking.py`, `test_elo_and_stats.py`, ...): `httpx.AsyncClient` + `ASGITransport`, `@pytest.mark.anyio`
-2. **Sync WebSocket** (`test_websocket_persistence.py`, `test_integration.py`): Starlette `TestClient`, `client.websocket_connect()`, `with patch(...)` context managers
+### Two test styles
 
-### Mocking DB in WebSocket tests:
+1. **Async HTTP** (`test_api.py`, `test_matchmaking.py`, `test_elo_and_stats.py`, ...):
+   `httpx.AsyncClient` + `ASGITransport`, `@pytest.mark.anyio`
+2. **Sync WebSocket** (`test_websocket_persistence.py`, `test_integration.py`): Starlette
+   `TestClient`, `client.websocket_connect()`, `with patch(...)` context managers
+
+### Mocking DB in WebSocket tests
+
 ```python
 def _mock_session_factory(session: AsyncMock) -> MagicMock:
     @asynccontextmanager
@@ -132,7 +146,9 @@ with patch("app.websocket.async_session_factory", new=_mock_session_factory(mock
 Mock DB result objects use `SimpleNamespace`, not full ORM models.
 
 ### Common test failure causes
-1. **Hanging test** — almost always a WS test sending a P2 move from `ws1`. The server rejects it silently; `ws2` blocks forever waiting for a broadcast that never arrives.
+
+1. **Hanging test** — almost always a WS test sending a P2 move from `ws1`. The server rejects it
+   silently; `ws2` blocks forever waiting for a broadcast that never arrives.
 2. **FakeRedis missing method** — add it to `FakeRedis` in `conftest.py` if a new Redis command is used.
 3. **Stale ConnectionManager state** — always clear it in `_reset_test_state`; check that fixture is present.
 
@@ -163,7 +179,8 @@ const state = {
 
 Screen flow: `screen-lobby` → `screen-games` (lobby) → `screen-game` → `screen-replay`
 
-`gamesRefreshTimer` starts in `enterGameLobby()` and stops in `startGame()` / `replayGame()`. Session state persisted to `sessionStorage` for page-refresh recovery.
+`gamesRefreshTimer` starts in `enterGameLobby()` and stops in `startGame()` / `replayGame()`.
+Session state persisted to `sessionStorage` for page-refresh recovery.
 
 ## Developer Commands
 
@@ -219,7 +236,9 @@ flowchart LR
 | `matchmaking:expiry:{player_id}` | String | 300s | TTL sentinel — absence means stale ghost entry |
 | `matchmaking:result:{player_id}` | String (JSON) | 120s | Match result, consumed once on read |
 
-**Matchmaking ghost prevention**: every `zadd` to the queue must be paired with `set(expiry_key, "1", ex=300)`. Candidates missing their expiry key are evicted silently — never matched.
+**Matchmaking ghost prevention**: every `zadd` to the queue must be paired with
+`set(expiry_key, "1", ex=300)`. Candidates missing their expiry key are evicted
+silently — never matched.
 
 ## Game State Machine
 
