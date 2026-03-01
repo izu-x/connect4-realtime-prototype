@@ -61,8 +61,8 @@ flowchart TD
 | `app/routes/games.py` | CRUD + board state REST endpoints |
 | `app/routes/players.py` | Player create/lookup/stats/active-game |
 | `app/routes/matchmaking.py` | ELO-band queue: join, status, leave |
-| `static/app.js` | All frontend JS (~1300 lines, single file) |
-| `static/style.css` | All styles (~1035 lines, CSS variables + glassmorphism theme) |
+| `static/app.js` | All frontend JS (~1 680 lines, single file) |
+| `static/style.css` | All styles (~1 340 lines, CSS variables + glassmorphism theme) |
 | `static/index.html` | Single-page app shell |
 | `infra/stack.py` | AWS CDK: Fargate + RDS + ElastiCache |
 
@@ -152,6 +152,32 @@ Mock DB result objects use `SimpleNamespace`, not full ORM models.
 2. **FakeRedis missing method** — add it to `FakeRedis` in `conftest.py` if a new Redis command is used.
 3. **Stale ConnectionManager state** — always clear it in `_reset_test_state`; check that fixture is present.
 
+### E2E browser tests (Playwright)
+
+3. **E2E browser** (`tests/e2e/`): Playwright (sync API) driving a real Chromium browser
+   against a running server. Opt-in via `pytest --e2e`.
+
+Key patterns:
+
+- **Isolation**: each test uses `unique_username()` (UUID-based) for collision-free player names.
+- **Two-player tests**: use the `two_players` fixture which creates two separate `BrowserContext`
+  instances, each with a registered player on the game lobby.
+- **Server check**: the session-scoped `_assert_server_running` fixture pings `GET /stats` and
+  skips all E2E tests if the server is unreachable.
+- **Helpers**: `register_player()`, `create_game_and_get_id()`, `join_game_by_id()`,
+  `setup_two_player_game()`, `make_move()`, `play_vertical_win()`, `play_diagonal_win()`,
+  `play_to_draw()` — all in `tests/e2e/conftest.py`.
+- **Test files**: `test_lobby.py`, `test_game_lobby.py`, `test_gameplay.py`, `test_navigation.py`,
+  `test_replay.py` (Screen 4 coverage).
+- **Auto-skip**: `tests/conftest.py` registers a `--e2e` CLI flag. Without it, all
+  `@pytest.mark.e2e` tests are skipped so `pytest -v` stays fast.
+
+```bash
+pip install -e ".[e2e]" && playwright install chromium
+docker compose up --build -d
+pytest --e2e -v tests/e2e/
+```
+
 ## Code Style
 
 - **Python 3.13**, ruff with `line-length = 120`, rules: `E,F,W,I,N,UP,ANN,BLE,C4,RET,SIM`
@@ -164,14 +190,14 @@ Mock DB result objects use `SimpleNamespace`, not full ORM models.
 
 ## Frontend (`static/app.js`)
 
-Single-file vanilla JS (~1300 lines). Key globals:
+Single-file vanilla JS (~1 680 lines). Key globals:
 
 ```js
 const state = {
     playerId, username, gameId, myPlayer,   // identity
     currentTurn, board, ws, gameOver,       // game state
     pollTimer,          // polls /games/{id}/status while waiting for opponent
-    statsTimer,         // polls /stats every 30s on lobby
+    statsTimer,         // polls /stats every 5s on lobby
     matchmakingTimer,   // polls /matchmaking/status every 2s
     gamesRefreshTimer,  // auto-refreshes waiting games list every 5s on lobby screen
 };
@@ -191,9 +217,15 @@ docker compose up --build -d api   # Rebuild only API (fast, keeps DB/Redis data
 pip install -e ".[dev]"            # Install with dev deps into .venv
 
 # Quality
-pytest -v                          # All 209 tests, no external deps, ~0.5s
+pytest -v                          # All 267 tests, no external deps, ~0.5s
 ruff check app/ tests/             # Lint
 ruff format app/ tests/            # Format
+
+# E2E browser tests (Playwright)
+pip install -e ".[e2e]"            # Install Playwright + deps
+playwright install chromium        # Download Chromium browser
+docker compose up --build -d       # Start full stack in background
+pytest --e2e -v tests/e2e/         # Run all E2E tests
 
 # Database migrations
 alembic upgrade head               # Apply all migrations
