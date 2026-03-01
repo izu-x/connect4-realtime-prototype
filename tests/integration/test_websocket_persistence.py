@@ -572,9 +572,9 @@ def test_ws_move_auto_recovers_when_redis_key_missing() -> None:
     mock_record.assert_awaited_once()
 
     # Verify the board was persisted to Redis after auto-recovery
-    assert (
-        fake_redis_instance._store.get(f"game:{_GAME_ID}") is not None
-    ), "Auto-recovery must save the board to Redis so subsequent moves work"
+    assert fake_redis_instance._store.get(f"game:{_GAME_ID}") is not None, (
+        "Auto-recovery must save the board to Redis so subsequent moves work"
+    )
 
 
 def test_ws_two_moves_after_auto_recovery() -> None:

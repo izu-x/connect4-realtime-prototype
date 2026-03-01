@@ -847,9 +847,9 @@ def test_matchmaking_to_websocket_play() -> None:
         assert resp_b.json()["status"] == "matched"
 
         # Verify Redis board exists — this was the root cause
-        assert (
-            fake_redis_instance._store.get(f"game:{game_id_str}") is not None
-        ), "Matchmaking must save_game() — this was the production bug"
+        assert fake_redis_instance._store.get(f"game:{game_id_str}") is not None, (
+            "Matchmaking must save_game() — this was the production bug"
+        )
 
         # ----- Phase 2: play via WebSocket -----
         with (

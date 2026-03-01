@@ -285,9 +285,9 @@ async def test_stale_queue_entry_causes_ghost_match(client: AsyncClient) -> None
         )
 
     body = resp.json()
-    assert (
-        body["status"] == "queued"
-    ), "Ghost entry without expiry sentinel must be evicted; real player should be queued, not ghost-matched"
+    assert body["status"] == "queued", (
+        "Ghost entry without expiry sentinel must be evicted; real player should be queued, not ghost-matched"
+    )
 
 
 @pytest.mark.anyio

@@ -225,9 +225,9 @@ def test_two_ws_alternating_moves_board_stays_consistent() -> None:
 
                 # Board piece count must match expected after each move
                 piece_count = sum(resp_primary["board"][r][c] != 0 for r in range(ROWS) for c in range(COLS))
-                assert (
-                    piece_count == move_index + 1
-                ), f"After move {move_index + 1}: expected {move_index + 1} pieces, found {piece_count}"
+                assert piece_count == move_index + 1, (
+                    f"After move {move_index + 1}: expected {move_index + 1} pieces, found {piece_count}"
+                )
 
     # Final board in Redis must have exactly 6 pieces at the correct positions.
     raw = fake_redis_instance._store.get(f"game:{_GAME_ID}")
@@ -361,6 +361,6 @@ def test_simultaneous_p1_clones_only_one_move_lands() -> None:
     assert raw is not None, "Board key must exist in Redis"
     final_board = json.loads(raw)
     total_pieces = sum(final_board[r][c] != 0 for r in range(ROWS) for c in range(COLS))
-    assert (
-        total_pieces == 1
-    ), f"Expected exactly 1 piece after two simultaneous P1 moves, found {total_pieces} — board corruption detected"
+    assert total_pieces == 1, (
+        f"Expected exactly 1 piece after two simultaneous P1 moves, found {total_pieces} — board corruption detected"
+    )
