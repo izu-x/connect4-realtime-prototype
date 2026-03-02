@@ -57,10 +57,10 @@ CDK provisions **everything** in a single command: VPC, security groups, RDS, El
 
 ### Deployment Modes
 
-| Mode | Flag | Cost | Access |
-|------|------|------|--------|
-| **Free tier** | `-c free_tier=true` | **$0/mo** | Task public IP (changes on restart) |
-| **Standard** | (default) | **~$16/mo** | Stable ALB DNS name |
+| Mode          | Flag                | Cost        | Access                              |
+| ------------- | ------------------- | ----------- | ----------------------------------- |
+| **Free tier** | `-c free_tier=true` | **$0/mo**   | Task public IP (changes on restart) |
+| **Standard**  | (default)           | **~$16/mo** | Stable ALB DNS name                 |
 
 ### 2.1 Bootstrap CDK (first time per account/region)
 
@@ -115,7 +115,9 @@ Outputs include:
 - **RedisEndpoint** — Redis hostname
 - **DbSecretArn** — Secrets Manager ARN for DB credentials
 
-> **Free tier access**: In free tier mode there's no ALB URL. Find the task's public IP in the ECS console (Cluster → Service → Task → Network) and open `http://<task-ip>:8000`. The IP changes on each task restart.
+> **Free tier access**: In free tier mode there's no ALB URL. Find the task's public IP in the
+> ECS console (Cluster → Service → Task → Network) and open `http://<task-ip>:8000`.
+> The IP changes on each task restart.
 
 ### 2.5 Tear down
 
@@ -135,11 +137,11 @@ A manual-trigger workflow is provided at `.github/workflows/deploy.yml`.
 
 Go to **Settings → Secrets and variables → Actions** and add:
 
-| Secret                  | Description                        | Example              |
-|-------------------------|------------------------------------|----------------------|
-| `AWS_ACCESS_KEY_ID`     | IAM user access key                | `AKIA...`            |
-| `AWS_SECRET_ACCESS_KEY` | IAM user secret key                | `wJalr...`           |
-| `AWS_ACCOUNT_ID`        | 12-digit AWS account number        | `123456789012`       |
+| Secret                  | Description                 | Example        |
+| ----------------------- | --------------------------- | -------------- |
+| `AWS_ACCESS_KEY_ID`     | IAM user access key         | `AKIA...`      |
+| `AWS_SECRET_ACCESS_KEY` | IAM user secret key         | `wJalr...`     |
+| `AWS_ACCOUNT_ID`        | 12-digit AWS account number | `123456789012` |
 
 > The IAM user needs `AdministratorAccess` or equivalent CDK permissions. For production, scope down to the specific services used.
 
@@ -167,15 +169,15 @@ The workflow will:
 
 CDK injects these into the ECS task at runtime:
 
-| Variable      | Source                              | Example Value                                  |
-|---------------|-------------------------------------|------------------------------------------------|
-| `DB_HOST`     | Secrets Manager (secret field)      | `connect4-db.abc123.rds.amazonaws.com`         |
-| `DB_USERNAME` | Secrets Manager (secret field)      | `connect4`                                     |
-| `DB_PASSWORD` | Secrets Manager (secret field)      | (auto-generated)                               |
-| `DB_NAME`     | Environment variable                | `connect4`                                     |
-| `DB_PORT`     | Environment variable                | `5432`                                         |
-| `REDIS_URL`   | Environment variable                | `redis://connect4-redis.abc.cache.amazonaws.com:6379` |
-| `GAME_TTL_SECONDS` | Environment variable           | `86400`                                        |
+| Variable           | Source                         | Example Value                                         |
+| ------------------ | ------------------------------ | ----------------------------------------------------- |
+| `DB_HOST`          | Secrets Manager (secret field) | `connect4-db.abc123.rds.amazonaws.com`                |
+| `DB_USERNAME`      | Secrets Manager (secret field) | `connect4`                                            |
+| `DB_PASSWORD`      | Secrets Manager (secret field) | (auto-generated)                                      |
+| `DB_NAME`          | Environment variable           | `connect4`                                            |
+| `DB_PORT`          | Environment variable           | `5432`                                                |
+| `REDIS_URL`        | Environment variable           | `redis://connect4-redis.abc.cache.amazonaws.com:6379` |
+| `GAME_TTL_SECONDS` | Environment variable           | `86400`                                               |
 
 The `entrypoint.sh` script builds `DATABASE_URL` from these components, runs Alembic migrations, and starts Uvicorn.
 
@@ -183,23 +185,23 @@ The `entrypoint.sh` script builds `DATABASE_URL` from these components, runs Ale
 
 ## 5. Monitoring & Logs
 
-| What               | Where                                       |
-|---------------------|---------------------------------------------|
-| Application logs    | CloudWatch Logs (stream prefix `connect4`)  |
-| RDS metrics         | CloudWatch (CPU, connections, IOPS)         |
-| Redis metrics       | CloudWatch (memory, cache hits, evictions)  |
-| App health          | ALB health check → `GET /docs` (200 OK)    |
+| What             | Where                                      |
+| ---------------- | ------------------------------------------ |
+| Application logs | CloudWatch Logs (stream prefix `connect4`) |
+| RDS metrics      | CloudWatch (CPU, connections, IOPS)        |
+| Redis metrics    | CloudWatch (memory, cache hits, evictions) |
+| App health       | ALB health check → `GET /docs` (200 OK)    |
 
 ---
 
 ## 6. Key Files
 
-| File                               | Purpose                                              |
-|------------------------------------|------------------------------------------------------|
-| `infra/stack.py`                   | CDK stack — all AWS resources                        |
-| `infra/app.py`                     | CDK entry point — account/region from env vars       |
-| `infra/requirements.txt`           | CDK Python dependencies                             |
-| `cdk.json`                         | CDK configuration                                   |
-| `.github/workflows/deploy.yml`     | Manual GitHub Actions deploy/destroy workflow        |
-| `entrypoint.sh`                    | Container startup — builds DATABASE_URL, runs Alembic |
-| `Dockerfile`                       | Container image definition                           |
+| File                           | Purpose                                               |
+| ------------------------------ | ----------------------------------------------------- |
+| `infra/stack.py`               | CDK stack — all AWS resources                         |
+| `infra/app.py`                 | CDK entry point — account/region from env vars        |
+| `infra/requirements.txt`       | CDK Python dependencies                               |
+| `cdk.json`                     | CDK configuration                                     |
+| `.github/workflows/deploy.yml` | Manual GitHub Actions deploy/destroy workflow         |
+| `entrypoint.sh`                | Container startup — builds DATABASE_URL, runs Alembic |
+| `Dockerfile`                   | Container image definition                            |

@@ -1,0 +1,26 @@
+# markdownlint configuration
+# Docs: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+default: true
+
+# MD013 — Line length (override to 150)
+MD013:
+  line_length: 150
+  heading_line_length: 150
+  code_block_line_length: 150
+  tables: false
+
+# MD029 — Allow ordered lists with non-sequential prefixes (e.g. 1.2, 1.3)
+MD029: false
+
+# MD033 — Allow inline HTML (needed for <details>, <summary>, badges)
+MD033: false
+
+# MD041 — First line doesn't need to be a top-level heading (badges come first)
+MD041: false
+
+# MD051 — Allow link fragments that may not resolve (TOC in large docs)
+MD051: false
+
+# MD060 — Disable table column alignment style enforcement
+MD060: false

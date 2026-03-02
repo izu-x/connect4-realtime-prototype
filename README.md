@@ -6,7 +6,9 @@
 ![Ruff](https://img.shields.io/badge/linter-ruff%200.15.4-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-> A prototype exploring the architectural gap between real-time state management (hot layer) and traceable event history (audit layer) — two concerns that are usually treated separately but interact in every move-based game.
+> A prototype exploring the architectural gap between real-time state management
+> (hot layer) and traceable event history (audit layer) — two concerns that are
+> usually treated separately but interact in every move-based game.
 
 ---
 
@@ -54,29 +56,30 @@ flowchart LR
     API -- "fire-and-forget append" --> Log
 ```
 
-Each layer is optimised for its access pattern: Redis for sub-millisecond reads during active play, PostgreSQL for relational queries and leaderboard, and an append-only log as the immutable event record.
+Each layer is optimised for its access pattern: Redis for sub-millisecond reads during active play,
+PostgreSQL for relational queries and leaderboard, and an append-only log as the immutable event record.
 
 ---
 
 ## Stack
 
-| Layer | Technology | Why |
-|-------|------------|-----|
-| Runtime | Python 3.13 | Async-native (`asyncio`); rich ecosystem for web and data tooling |
-| API | FastAPI + Uvicorn | WebSocket support, auto-OpenAPI, Pydantic v2, non-blocking I/O |
-| Hot state | Redis 7 | Sub-ms get/set; atomic `SETNX` distributed lock |
-| Cold data | PostgreSQL 17 | FK constraints, ACID transactions, complex leaderboard queries |
-| Audit | JSONL file | Immutable append; directly ingestible by Spark / EMR / Flink |
-| Frontend | Vanilla JS + CSS | Single-page app, WebSocket-driven, zero build step |
-| Infra | Docker Compose / AWS CDK | One-command local dev; Fargate + RDS + ElastiCache in production |
-| Quality | Ruff 0.15.4 + pytest + Hypothesis | Linting, formatting, example + property-based test coverage |
-| CI/CD | GitHub Actions | Lint, format check, and full test suite on every push |
+| Layer     | Technology                        | Why                                                               |
+| --------- | --------------------------------- | ----------------------------------------------------------------- |
+| Runtime   | Python 3.13                       | Async-native (`asyncio`); rich ecosystem for web and data tooling |
+| API       | FastAPI + Uvicorn                 | WebSocket support, auto-OpenAPI, Pydantic v2, non-blocking I/O    |
+| Hot state | Redis 7                           | Sub-ms get/set; atomic `SETNX` distributed lock                   |
+| Cold data | PostgreSQL 17                     | FK constraints, ACID transactions, complex leaderboard queries    |
+| Audit     | JSONL file                        | Immutable append; directly ingestible by Spark / EMR / Flink      |
+| Frontend  | Vanilla JS + CSS                  | Single-page app, WebSocket-driven, zero build step                |
+| Infra     | Docker Compose / AWS CDK          | One-command local dev; Fargate + RDS + ElastiCache in production  |
+| Quality   | Ruff 0.15.4 + pytest + Hypothesis | Linting, formatting, example + property-based test coverage       |
+| CI/CD     | GitHub Actions                    | Lint, format check, and full test suite on every push             |
 
 ---
 
 ## Project Layout
 
-```
+```text
 app/
 ├── main.py               # FastAPI app creation, router includes, lifespan
 ├── game.py               # Connect 4 logic — pure Python, zero I/O
@@ -131,13 +134,13 @@ cd connect4-realtime-prototype
 ./setup.sh
 ```
 
-| Mode | What it does |
-|------|-------------|
-| `./setup.sh docker` | Full stack in containers — zero local dependencies |
+| Mode                | What it does                                                 |
+| ------------------- | ------------------------------------------------------------ |
+| `./setup.sh docker` | Full stack in containers — zero local dependencies           |
 | `./setup.sh native` | Python locally with hot-reload; Redis + PostgreSQL in Docker |
-| `./setup.sh clean` | Stop containers, remove volumes and `.venv` |
+| `./setup.sh clean`  | Stop containers, remove volumes and `.venv`                  |
 
-Open **http://localhost:8000** to play, or **http://localhost:8000/docs** for the interactive API explorer.
+Open **<http://localhost:8000>** to play, or **<http://localhost:8000/docs>** for the interactive API explorer.
 
 <details>
 <summary>Manual (Docker Compose only)</summary>
@@ -164,11 +167,11 @@ wscat -c ws://localhost:8000/ws/my-game
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `postgresql+asyncpg://user:password@localhost:5432/connect4` | PostgreSQL async connection string |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string |
-| `GAME_TTL_SECONDS` | `86400` | Board TTL in Redis (seconds); default = 24 h |
+| Variable           | Default                                                      | Description                                  |
+| ------------------ | ------------------------------------------------------------ | -------------------------------------------- |
+| `DATABASE_URL`     | `postgresql+asyncpg://user:password@localhost:5432/connect4` | PostgreSQL async connection string           |
+| `REDIS_URL`        | `redis://localhost:6379/0`                                   | Redis connection string                      |
+| `GAME_TTL_SECONDS` | `86400`                                                      | Board TTL in Redis (seconds); default = 24 h |
 
 > In AWS deployments, database and Redis credentials are injected by CDK from Secrets Manager at runtime.
 
@@ -178,43 +181,43 @@ wscat -c ws://localhost:8000/ws/my-game
 
 ### Games
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/games` | Create a new game (returns `WAITING` status) |
-| `POST` | `/games/{game_id}/join` | Join a waiting game as player 2 |
-| `POST` | `/games/{game_id}/move` | Make a move; returns board state, winner, and winning cells |
-| `GET` | `/games/{game_id}` | Current board state from Redis |
-| `GET` | `/games/{game_id}/status` | Game + player metadata from PostgreSQL |
-| `GET` | `/games/{game_id}/moves` | Ordered move history for full replay |
-| `GET` | `/games/recent` | Recently finished games (default 10, max 100) |
-| `GET` | `/games/waiting` | Games waiting for a second player |
-| `DELETE` | `/games/{game_id}/cancel` | Cancel a waiting game (creator only) |
+| Method   | Endpoint                  | Description                                                 |
+| -------- | ------------------------- | ----------------------------------------------------------- |
+| `POST`   | `/games`                  | Create a new game (returns `WAITING` status)                |
+| `POST`   | `/games/{game_id}/join`   | Join a waiting game as player 2                             |
+| `POST`   | `/games/{game_id}/move`   | Make a move; returns board state, winner, and winning cells |
+| `GET`    | `/games/{game_id}`        | Current board state from Redis                              |
+| `GET`    | `/games/{game_id}/status` | Game + player metadata from PostgreSQL                      |
+| `GET`    | `/games/{game_id}/moves`  | Ordered move history for full replay                        |
+| `GET`    | `/games/recent`           | Recently finished games (default 10, max 100)               |
+| `GET`    | `/games/waiting`          | Games waiting for a second player                           |
+| `DELETE` | `/games/{game_id}/cancel` | Cancel a waiting game (creator only)                        |
 
 ### Players
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/players` | Register a new player |
-| `GET` | `/players/{player_id}/stats` | ELO rating + win/loss/draw record |
-| `GET` | `/players/{player_id}/active-game` | Currently active game for a player |
-| `GET` | `/players/{player_id}/games` | Full game history for a player |
-| `GET` | `/leaderboard` | Top players ranked by ELO |
+| Method | Endpoint                           | Description                        |
+| ------ | ---------------------------------- | ---------------------------------- |
+| `POST` | `/players`                         | Register a new player              |
+| `GET`  | `/players/{player_id}/stats`       | ELO rating + win/loss/draw record  |
+| `GET`  | `/players/{player_id}/active-game` | Currently active game for a player |
+| `GET`  | `/players/{player_id}/games`       | Full game history for a player     |
+| `GET`  | `/leaderboard`                     | Top players ranked by ELO          |
 
 ### Matchmaking
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/matchmaking/join` | Enter the ELO-band matchmaking queue |
-| `GET` | `/matchmaking/status/{player_id}` | Queue position or match result |
-| `DELETE` | `/matchmaking/leave/{player_id}` | Leave the matchmaking queue |
+| Method   | Endpoint                          | Description                          |
+| -------- | --------------------------------- | ------------------------------------ |
+| `POST`   | `/matchmaking/join`               | Enter the ELO-band matchmaking queue |
+| `GET`    | `/matchmaking/status/{player_id}` | Queue position or match result       |
+| `DELETE` | `/matchmaking/leave/{player_id}`  | Leave the matchmaking queue          |
 
 ### Platform
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/stats` | Live active game count and online player count |
-| `POST` | `/heartbeat` | Record a presence heartbeat for a player |
-| `GET` | `/docs` | Interactive OpenAPI reference |
+| Method | Endpoint     | Description                                    |
+| ------ | ------------ | ---------------------------------------------- |
+| `GET`  | `/stats`     | Live active game count and online player count |
+| `POST` | `/heartbeat` | Record a presence heartbeat for a player       |
+| `GET`  | `/docs`      | Interactive OpenAPI reference                  |
 
 ### Move Payload
 
@@ -231,15 +234,15 @@ wscat -c ws://localhost:8000/ws/my-game
 
 Connect to `ws://host/ws/{game_id}` and exchange JSON messages:
 
-| Direction | Message | Description |
-|-----------|---------|-------------|
-| Client → Server | `{"player": 1, "column": 3}` | Make a move |
-| Client → Server | `{"action": "identify", "player": 1, "username": "alice"}` | Bind identity to connection |
-| Client → Server | `{"action": "rematch", "player": 1}` | Vote for rematch (2 votes triggers reset) |
-| Server → Client | `{"player": 1, "column": 3, "row": 5, "board": [...], ...}` | Move broadcast |
-| Server → Client | `{"rematch": true}` | Rematch accepted — both clients reset |
-| Server → Client | `{"rematch_waiting": true}` | Opponent voted, waiting for your vote |
-| Server → Client | `{"type": "player_status", ...}` | Presence notification |
+| Direction       | Message                                                     | Description                               |
+| --------------- | ----------------------------------------------------------- | ----------------------------------------- |
+| Client → Server | `{"player": 1, "column": 3}`                                | Make a move                               |
+| Client → Server | `{"action": "identify", "player": 1, "username": "alice"}`  | Bind identity to connection               |
+| Client → Server | `{"action": "rematch", "player": 1}`                        | Vote for rematch (2 votes triggers reset) |
+| Server → Client | `{"player": 1, "column": 3, "row": 5, "board": [...], ...}` | Move broadcast                            |
+| Server → Client | `{"rematch": true}`                                         | Rematch accepted — both clients reset     |
+| Server → Client | `{"rematch_waiting": true}`                                 | Opponent voted, waiting for your vote     |
+| Server → Client | `{"type": "player_status", ...}`                            | Presence notification                     |
 
 > The first move from a WebSocket connection permanently binds that socket to the sending player number. Use separate connections for each player.
 
@@ -255,11 +258,11 @@ pytest tests/integration/  # Integration tests only
 
 All tests run against an **in-process FakeRedis** and **mock DB sessions** — no external services required.
 
-| Suite | Tests | What it covers |
-|-------|-------|----------------|
-| Unit | 97 | Game logic, Pydantic models, store ops, audit, ELO, connection manager |
-| Property-based | 11 | Hypothesis-driven invariants on game logic |
-| Integration | 159 | Full HTTP/WS journeys, matchmaking pipelines, concurrent moves, auto-recovery |
+| Suite          | Tests | What it covers                                                                |
+| -------------- | ----- | ----------------------------------------------------------------------------- |
+| Unit           | 97    | Game logic, Pydantic models, store ops, audit, ELO, connection manager        |
+| Property-based | 11    | Hypothesis-driven invariants on game logic                                    |
+| Integration    | 159   | Full HTTP/WS journeys, matchmaking pipelines, concurrent moves, auto-recovery |
 
 ---
 
@@ -293,12 +296,12 @@ Deploys to ECS Fargate with RDS PostgreSQL and ElastiCache Redis. See [`docs/AWS
 
 ## Trade-offs
 
-| Decision | Trade-off | Production path |
-|----------|-----------|-----------------|
-| File-based audit log | Not durable across container restarts | Kafka / Kinesis producer; same event schema |
-| SETNX lock (single Redis node) | Correct for single-node only | Redlock for multi-node HA |
-| JSON board serialisation | Human-readable, ~120 B | MessagePack for ~5x smaller payload |
-| In-memory `ConnectionManager` | Breaks with multiple app instances | Redis Pub/Sub fan-out per game channel |
-| Vanilla JS frontend | No build step, fast iteration | React/Vue for complex UI state |
+| Decision                       | Trade-off                             | Production path                             |
+| ------------------------------ | ------------------------------------- | ------------------------------------------- |
+| File-based audit log           | Not durable across container restarts | Kafka / Kinesis producer; same event schema |
+| SETNX lock (single Redis node) | Correct for single-node only          | Redlock for multi-node HA                   |
+| JSON board serialisation       | Human-readable, ~120 B                | MessagePack for ~5x smaller payload         |
+| In-memory `ConnectionManager`  | Breaks with multiple app instances    | Redis Pub/Sub fan-out per game channel      |
+| Vanilla JS frontend            | No build step, fast iteration         | React/Vue for complex UI state              |
 
 For full architecture rationale see [`docs/TECHNICAL_DECISIONS.md`](docs/TECHNICAL_DECISIONS.md).
