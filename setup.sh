@@ -56,6 +56,46 @@ EOF
 # ── Prerequisite checks ─────────────────────────────────────────────────────
 has_command() { command -v "$1" &> /dev/null; }
 
+# ── Mise activation helper ──────────────────────────────────────────────────
+ensure_mise_activated() {
+    # If mise is installed but not activated, the .venv won't be auto-used.
+    # This function ensures the shell hook is configured for new developers.
+    if ! has_command mise; then
+        return 0  # mise not installed — skip, fall back to manual venv
+    fi
+
+    # Detect the user's shell config file
+    local shell_name shell_rc
+    shell_name=$(basename "${SHELL:-/bin/bash}")
+    case "$shell_name" in
+        zsh)  shell_rc="$HOME/.zshrc" ;;
+        bash) shell_rc="$HOME/.bashrc" ;;
+        fish) shell_rc="$HOME/.config/fish/config.fish" ;;
+        *)    shell_rc="" ;;
+    esac
+
+    if [[ -z "$shell_rc" ]]; then
+        warn "Unknown shell ($shell_name) — cannot auto-configure mise activation."
+        info "Add this to your shell config:  eval \"\$(mise activate $shell_name)\""
+        return 0
+    fi
+
+    # Check if activation hook is already present
+    if grep -q 'mise activate' "$shell_rc" 2>/dev/null; then
+        ok "Mise shell hook already configured in $shell_rc"
+    else
+        info "Adding mise activation hook to $shell_rc..."
+        printf '\n# Mise — auto-activate Python venvs and tool versions\neval "$(mise activate %s)"\n' "$shell_name" >> "$shell_rc"
+        ok "Mise hook added to $shell_rc (takes effect in new terminals)"
+    fi
+
+    # Activate mise in the current script session so .venv is used immediately
+    eval "$(mise activate bash --shims)" 2>/dev/null || true
+
+    # Trust the project's .mise.toml so `mise` auto-activates in this directory
+    mise trust 2>/dev/null || true
+}
+
 check_docker() {
     if ! has_command docker; then
         fail "Docker not found. Install it from https://docs.docker.com/get-docker/"
@@ -225,6 +265,10 @@ run_native() {
         wait_for_service "PostgreSQL" "docker compose exec -T postgres pg_isready -U connect4"
         wait_for_service "Redis" "docker compose exec -T redis redis-cli ping"
     fi
+
+    # Set up mise (if available) for automatic venv activation
+    step "Configuring development environment"
+    ensure_mise_activated
 
     # Create virtual environment
     step "Setting up Python virtual environment"
