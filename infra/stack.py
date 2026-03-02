@@ -228,7 +228,7 @@ class Connect4Stack(Stack):
 
             # Health check
             alb_service.target_group.configure_health_check(
-                path="/docs",
+                path="/stats",
                 interval=Duration.seconds(30),
                 healthy_threshold_count=2,
                 unhealthy_threshold_count=3,
