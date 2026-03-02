@@ -214,6 +214,10 @@ async def _handle_move(
     player = int(payload["player"])
     column = int(payload["column"])
 
+    if player not in (1, 2):
+        await websocket.send_text(json.dumps({"error": "Invalid player number."}))
+        return
+
     # Validate move comes from the identified player on this connection
     identified = manager._player_map.get(game_id, {}).get(websocket)
     if identified is not None and player != identified:

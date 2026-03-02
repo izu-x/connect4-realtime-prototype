@@ -432,6 +432,9 @@ $("#btn-create-game").addEventListener("click", async () => {
     clearInterval(state.matchmakingTimer);
     state.matchmakingTimer = null;
     $("#matchmaking-card").style.display = "none";
+    if (state.playerId) {
+        api("DELETE", `/matchmaking/leave/${state.playerId}`).catch(() => { });
+    }
 
     try {
         const game = await api("POST", "/games", { player1_id: state.playerId });
@@ -497,6 +500,10 @@ $("#btn-matchmaking").addEventListener("click", async () => {
     clearInterval(state.pollTimer);
     state.pollTimer = null;
     $("#waiting-card").style.display = "none";
+    /* Cancel the orphaned WAITING game so it doesn't linger in the lobby */
+    if (state.gameId && state.playerId) {
+        api("DELETE", `/games/${state.gameId}/cancel?player_id=${state.playerId}`).catch(() => { });
+    }
     state.gameId = null;
     state.myPlayer = null;
     saveState();
@@ -1076,7 +1083,6 @@ function connectWebSocket(gameId) {
         /* Remove the disconnected overlay if we're reconnecting */
         const boardEl = $("#board");
         if (boardEl) boardEl.classList.remove("board-disabled");
-        state.wsReconnectAttempts = 0;
 
         /* Send an identify message so server knows our player number + name */
         ws.send(JSON.stringify({ action: "identify", player: state.myPlayer, username: state.username }));
@@ -1139,8 +1145,12 @@ function connectWebSocket(gameId) {
             return;
         }
 
-        /* Regular move */
-        if (data.board) state.board = data.board;
+        /* Reset reconnect counter on first valid game message */
+        if (state.wsReconnectAttempts > 0) state.wsReconnectAttempts = 0;
+
+        /* Regular move — guard against messages missing required fields */
+        if (data.board == null || data.row == null || data.column == null || data.player == null) return;
+        state.board = data.board;
         renderBoard(data.board);
         animateDrop(data.row, data.column, data.player);
 

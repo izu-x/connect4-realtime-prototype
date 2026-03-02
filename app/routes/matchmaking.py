@@ -178,4 +178,5 @@ async def matchmaking_leave(player_id: uuid.UUID) -> dict[str, str]:
     redis = await get_redis()
     await redis.zrem(MATCHMAKING_KEY, str(player_id))
     await redis.delete(f"{MATCHMAKING_EXPIRY_PREFIX}{player_id}")
+    await redis.delete(f"{MATCHMAKING_RESULT_PREFIX}{player_id}")
     return {"status": "left"}
