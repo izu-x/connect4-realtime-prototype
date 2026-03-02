@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/izu-x/connect4-realtime-prototype/actions/workflows/ci.yml/badge.svg)](https://github.com/izu-x/connect4-realtime-prototype/actions/workflows/ci.yml)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
-![Tests](https://img.shields.io/badge/tests-390%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-267%20passed%20%2B%20123%20e2e-brightgreen)
 ![Ruff](https://img.shields.io/badge/linter-ruff%200.15.4-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
