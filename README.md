@@ -145,7 +145,7 @@ wscat -c ws://localhost:8000/ws/my-game
 | Variable           | Default                                                      | Description                                  |
 | ------------------ | ------------------------------------------------------------ | -------------------------------------------- |
 | `DATABASE_URL`     | `postgresql+asyncpg://user:password@localhost:5432/connect4` | PostgreSQL async connection string           |
-| `REDIS_URL`        | `redis://localhost:6379/0`                                   | Redis connection string                      |
+| `REDIS_URL`        | `redis://localhost:6379`                                     | Redis connection string                      |
 | `GAME_TTL_SECONDS` | `86400`                                                      | Board TTL in Redis (seconds); default = 24 h |
 
 > In AWS deployments, database and Redis credentials are injected by CDK from Secrets Manager at runtime.

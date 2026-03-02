@@ -497,7 +497,7 @@ app's architecture. The application only speaks to PostgreSQL and Redis — not 
 
 | Service               | Role                | Rationale                                                                                             |
 | --------------------- | ------------------- | ----------------------------------------------------------------------------------------------------- |
-| **ECS Fargate**       | Container compute   | WebSocket-capable, no server management, free for 750 hrs/mo                                          |
+| **ECS Fargate**       | Container compute   | WebSocket-capable, no server management; Fargate has no AWS Free Tier — costs ~$0.01/hr at 0.25 vCPU/512 MiB (cheapest config) |
 | **RDS PostgreSQL**    | Relational database | Data is inherently relational (players → games → moves); full SQL needed for leaderboard queries      |
 | **ElastiCache Redis** | Hot state + locking | Sub-ms reads on every move; native `SETNX` for distributed locks; built-in Pub/Sub for future fan-out |
 | **ALB**               | Load balancer       | Native WebSocket upgrade handling; HTTP health checks; sticky-session ready for scale-out             |

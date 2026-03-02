@@ -47,7 +47,7 @@ pip install -r infra/requirements.txt
 
 ### For GitHub Actions deployment
 
-No local tools needed — just configure repository secrets (see section 5).
+No local tools needed — just configure repository secrets (see section 3.1).
 
 ---
 
@@ -190,7 +190,7 @@ The `entrypoint.sh` script builds `DATABASE_URL` from these components, runs Ale
 | Application logs | CloudWatch Logs (stream prefix `connect4`) |
 | RDS metrics      | CloudWatch (CPU, connections, IOPS)        |
 | Redis metrics    | CloudWatch (memory, cache hits, evictions) |
-| App health       | ALB health check → `GET /docs` (200 OK)    |
+| App health       | ALB health check → `GET /stats` (200 OK)   |
 
 ---
 
