@@ -14,16 +14,20 @@
 
 ## Table of Contents
 
-- [Architecture](#architecture)
-- [Stack](#stack)
-- [Project Layout](#project-layout)
-- [Quick Start](#quick-start)
-- [Environment Variables](#environment-variables)
-- [API](#api)
-- [Testing](#testing)
-- [Development](#development)
-- [AWS Deployment](#aws-deployment)
-- [Trade-offs](#trade-offs)
+- [Connect 4 Real-Time Prototype](#connect-4-real-time-prototype)
+  - [Table of Contents](#table-of-contents)
+  - [Architecture](#architecture)
+  - [Stack](#stack)
+  - [Project Layout](#project-layout)
+  - [Quick Start](#quick-start)
+  - [Environment Variables](#environment-variables)
+  - [API](#api)
+    - [WebSocket Protocol](#websocket-protocol)
+  - [Testing](#testing)
+    - [E2E Browser Tests (Playwright)](#e2e-browser-tests-playwright)
+  - [Development](#development)
+  - [AWS Deployment](#aws-deployment)
+  - [Trade-offs](#trade-offs)
 
 ---
 
@@ -90,8 +94,6 @@ infra/            # AWS CDK stack (Fargate + RDS + ElastiCache)
 alembic/          # Database migrations
 docs/             # Architecture rationale + deployment guide
 ```
-
-> Run `find app tests -name '*.py' | head -40` to see all source files.
 
 ---
 
