@@ -414,6 +414,55 @@ async def test_three_players_correct_pairing(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Stale result key regression: leave after being matched
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_leave_after_match_clears_result_key(client: AsyncClient) -> None:
+    """Player matched → calls /matchmaking/leave → status must NOT return matched.
+
+    Regression test for the stale match result bug fixed in this PR:
+    previously, /matchmaking/leave only removed the player from the queue and
+    deleted the expiry sentinel, but left the ``matchmaking:result:{id}`` key
+    intact.  A subsequent call to /matchmaking/status would therefore still
+    return ``matched``, causing the client to attempt to join a game that the
+    player had already abandoned.
+    """
+    alice = _mock_player(PLAYER_ALICE_ID, "alice", elo_rating=1000)
+    bob = _mock_player(PLAYER_BOB_ID, "bob", elo_rating=1050)
+    game = _mock_game(GAME_ID, PLAYER_ALICE_ID, PLAYER_BOB_ID, "playing")
+
+    # Alice joins → queued
+    with patch("app.routes.matchmaking.get_player_by_id", new=AsyncMock(return_value=alice)):
+        await client.post("/matchmaking/join", json={"player1_id": str(PLAYER_ALICE_ID)})
+
+    # Bob joins → matches Alice; result key is written for Alice
+    with (
+        patch("app.routes.matchmaking.get_player_by_id", new=AsyncMock(return_value=bob)),
+        patch("app.routes.matchmaking.create_game", new=AsyncMock(return_value=_mock_game(GAME_ID, PLAYER_ALICE_ID))),
+        patch("app.routes.matchmaking.join_game", new=AsyncMock(return_value=game)),
+    ):
+        bob_resp = await client.post("/matchmaking/join", json={"player1_id": str(PLAYER_BOB_ID)})
+    assert bob_resp.json()["status"] == "matched"
+
+    # Confirm Alice's result key exists before leave
+    pre_leave = await client.get(f"/matchmaking/status/{PLAYER_ALICE_ID}")
+    assert pre_leave.json()["status"] == "matched", "Precondition: result key must exist before leave"
+
+    # Alice decides to leave (e.g. clicked 'Cancel' before seeing the match)
+    leave_resp = await client.delete(f"/matchmaking/leave/{PLAYER_ALICE_ID}")
+    assert leave_resp.json()["status"] == "left"
+
+    # Status must no longer report a match — the result key should be gone
+    post_leave = await client.get(f"/matchmaking/status/{PLAYER_ALICE_ID}")
+    assert post_leave.json()["status"] != "matched", (
+        "After /matchmaking/leave, status must not return 'matched' — "
+        "the result key must be deleted by the leave endpoint"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Leave idempotence
 # ---------------------------------------------------------------------------
 
