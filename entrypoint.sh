@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 # Build DATABASE_URL from individual components if not already set.
 # CDK injects DB_SECRET_ARN + individual env vars; docker-compose sets DATABASE_URL directly.
 

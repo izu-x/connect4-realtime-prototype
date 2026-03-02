@@ -28,6 +28,7 @@ const state = {
     gameHistory: [],
     connectedPlayers: [],
     playerUsernames: {},  // {1: "Alice", 2: "Bob"}
+    wsReconnectAttempts: 0,
 };
 
 /* Persist key state fields across page reloads */
@@ -449,7 +450,7 @@ $("#btn-create-game").addEventListener("click", async () => {
         /* Poll until someone joins */
         pollForOpponent(game.id);
     } catch (err) {
-        alert("Failed to create game: " + err.message);
+        showToast("Error", "Failed to create game: " + err.message, "error");
     }
 });
 
@@ -522,7 +523,7 @@ $("#btn-matchmaking").addEventListener("click", async () => {
     } catch (err) {
         btn.disabled = false;
         btn.textContent = "Find Opponent";
-        alert("Matchmaking failed: " + err.message);
+        showToast("Error", "Matchmaking failed: " + err.message, "error");
     }
 });
 
@@ -763,16 +764,6 @@ function animateDrop(row, col, player) {
         case "feather": {
             const dur = (1.2 + fallDistance * 0.15).toFixed(2);
             cell.style.animation = `dropFeather ${dur}s ease-in-out forwards`;
-            break;
-        }
-        case "slam_hard": {
-            const dur = (0.28 + fallDistance * 0.04).toFixed(2);
-            cell.style.animation = `dropSlam ${dur}s cubic-bezier(0.55, 0, 1, 0.45) forwards`;
-            cell.addEventListener("animationend", () => {
-                const bc = $("#board-container");
-                bc.classList.add("shaking");
-                bc.addEventListener("animationend", () => bc.classList.remove("shaking"), { once: true });
-            }, { once: true });
             break;
         }
         case "slam_ultra": {
@@ -1085,6 +1076,7 @@ function connectWebSocket(gameId) {
         /* Remove the disconnected overlay if we're reconnecting */
         const boardEl = $("#board");
         if (boardEl) boardEl.classList.remove("board-disabled");
+        state.wsReconnectAttempts = 0;
 
         /* Send an identify message so server knows our player number + name */
         ws.send(JSON.stringify({ action: "identify", player: state.myPlayer, username: state.username }));
@@ -1092,12 +1084,23 @@ function connectWebSocket(gameId) {
             state.currentTurn === state.myPlayer ? "Your turn" : "Opponent's turn";
     });
 
+    ws.addEventListener("error", () => {
+        console.warn("WebSocket error on game", gameId);
+    });
+
     ws.addEventListener("message", (event) => {
-        const data = JSON.parse(event.data);
+        let data;
+        try {
+            data = JSON.parse(event.data);
+        } catch (err) {
+            console.warn("Malformed WS message:", err);
+            return;
+        }
 
         /* Error messages */
         if (data.error) {
             console.warn("Server error:", data.error);
+            showToast("Move rejected", data.error, "warning");
             /* Restart idle taunts — handleCellClick stopped them before the move failed */
             if (!state.gameOver && state.currentTurn === state.myPlayer) {
                 startIdleTaunt();
@@ -1137,6 +1140,7 @@ function connectWebSocket(gameId) {
         }
 
         /* Regular move */
+        if (data.board) state.board = data.board;
         renderBoard(data.board);
         animateDrop(data.row, data.column, data.player);
 
@@ -1163,14 +1167,21 @@ function connectWebSocket(gameId) {
         const boardEl = $("#board");
         if (boardEl) boardEl.classList.add("board-disabled");
 
-        /* Single auto-reconnect attempt after 2 s */
-        setTimeout(() => {
-            /* Only reconnect if we're still on the game screen and game isn't over */
-            if (!state.gameOver && state.gameId && state.ws === ws) {
-                connectWebSocket(state.gameId);
-                restoreGameState(state.gameId);
-            }
-        }, 2000);
+        /* Exponential backoff: 2s → 4s → 8s, then give up */
+        const MAX_RECONNECT_ATTEMPTS = 3;
+        if (state.wsReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            const delay = 2000 * Math.pow(2, state.wsReconnectAttempts);
+            state.wsReconnectAttempts++;
+            setTimeout(() => {
+                if (!state.gameOver && state.gameId && state.ws === ws) {
+                    connectWebSocket(state.gameId);
+                    restoreGameState(state.gameId);
+                }
+            }, delay);
+        } else {
+            $("#game-status").textContent = "Connection lost — please rejoin the game.";
+            showToast("Disconnected", "Could not reconnect after multiple attempts.", "error");
+        }
     });
 }
 
@@ -1226,6 +1237,8 @@ $("#btn-leave").addEventListener("click", () => {
     const toasts = $("#toast-container");
     if (toasts) toasts.innerHTML = "";
     stopConfetti();
+    stopIdleTaunt();
+    stopCountdown();
     enterGameLobby();
 });
 
@@ -1262,7 +1275,7 @@ window.replayGame = async function (gameId) {
     try {
         const moves = await api("GET", `/games/${gameId}/moves`);
         if (moves.length === 0) {
-            alert("No moves recorded for this game.");
+            showToast("Replay", "No moves recorded for this game.", "warning");
             return;
         }
 
@@ -1279,7 +1292,7 @@ window.replayGame = async function (gameId) {
         slider.max = moves.length;
         slider.value = 0;
     } catch (err) {
-        alert("Failed to load game moves: " + err.message);
+        showToast("Error", "Failed to load game moves: " + err.message, "error");
     }
 };
 
@@ -1426,6 +1439,7 @@ function launchConfetti() {
         confettiCanvas.height = window.innerHeight;
     }
     resize();
+    _confettiResizeHandler = resize;
     window.addEventListener("resize", resize);
 
     const width = confettiCanvas.width;
@@ -1526,10 +1540,16 @@ function launchConfetti() {
     confettiAnimationId = requestAnimationFrame(animate);
 }
 
+let _confettiResizeHandler = null;
+
 function stopConfetti() {
     if (confettiAnimationId) {
         cancelAnimationFrame(confettiAnimationId);
         confettiAnimationId = null;
+    }
+    if (_confettiResizeHandler) {
+        window.removeEventListener("resize", _confettiResizeHandler);
+        _confettiResizeHandler = null;
     }
     if (confettiCanvas) {
         confettiCanvas.remove();
