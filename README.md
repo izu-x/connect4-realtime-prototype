@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/izu-x/connect4-realtime-prototype/actions/workflows/ci.yml/badge.svg)](https://github.com/izu-x/connect4-realtime-prototype/actions/workflows/ci.yml)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
-![Tests](https://img.shields.io/badge/tests-267%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-390%20passed-brightgreen)
 ![Ruff](https://img.shields.io/badge/linter-ruff%200.15.4-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -19,8 +19,7 @@
 - [Project Layout](#project-layout)
 - [Quick Start](#quick-start)
 - [Environment Variables](#environment-variables)
-- [API Reference](#api-reference)
-- [WebSocket Protocol](#websocket-protocol)
+- [API](#api)
 - [Testing](#testing)
 - [Development](#development)
 - [AWS Deployment](#aws-deployment)
@@ -67,7 +66,7 @@ PostgreSQL for relational queries and leaderboard, and an append-only log as the
 | --------- | --------------------------------- | ----------------------------------------------------------------- |
 | Runtime   | Python 3.13                       | Async-native (`asyncio`); rich ecosystem for web and data tooling |
 | API       | FastAPI + Uvicorn                 | WebSocket support, auto-OpenAPI, Pydantic v2, non-blocking I/O    |
-| Hot state | Redis 7                           | Sub-ms get/set; atomic `SETNX` distributed lock                   |
+| Hot state | Redis 8                           | Sub-ms get/set; atomic `SETNX` distributed lock                   |
 | Cold data | PostgreSQL 17                     | FK constraints, ACID transactions, complex leaderboard queries    |
 | Audit     | JSONL file                        | Immutable append; directly ingestible by Spark / EMR / Flink      |
 | Frontend  | Vanilla JS + CSS                  | Single-page app, WebSocket-driven, zero build step                |
@@ -80,49 +79,19 @@ PostgreSQL for relational queries and leaderboard, and an append-only log as the
 ## Project Layout
 
 ```text
-app/
-├── main.py               # FastAPI app creation, router includes, lifespan
-├── game.py               # Connect 4 logic — pure Python, zero I/O
-├── models.py             # Pydantic request/response schemas
-├── store.py              # Redis persistence + SETNX locking
-├── audit.py              # JSONL event logger (nanosecond timestamps)
-├── connection_manager.py # WebSocket room/player tracking + presence
-├── websocket.py          # WebSocket endpoint: move, identify, rematch
-├── db_models.py          # SQLAlchemy ORM models (Player, Game, Move)
-├── repository.py         # Database query functions (no commits inside)
-├── database.py           # Async engine + session factory
-└── routes/
-    ├── games.py          # Game CRUD + board state REST endpoints
-    ├── players.py        # Player registration, stats, ELO
-    └── matchmaking.py    # ELO-band matchmaking queue
-
-static/
-├── index.html            # Single-page app shell
-├── app.js                # All frontend logic (~1 700 lines)
-└── style.css             # CSS variables + glassmorphism theme
-
+app/              # FastAPI backend — routes, game logic, Redis/DB layers
+  routes/         #   REST endpoints (games, players, matchmaking)
+static/           # Single-page frontend (vanilla JS + CSS, zero build step)
 tests/
-├── conftest.py           # FakeRedis, mock DB, shared fixtures
-├── unit/                 # Pure logic: game, models, store, audit, ELO
-│   ├── test_game.py
-│   ├── test_game_hypothesis.py   # Property-based tests (Hypothesis)
-│   ├── test_models.py
-│   ├── test_store.py
-│   ├── test_audit.py
-│   ├── test_connection_manager.py
-│   └── test_elo_and_stats.py
-└── integration/          # Full-stack journeys: HTTP → Redis → DB mock
-    ├── test_api.py
-    ├── test_integration.py
-    ├── test_websocket_persistence.py
-    ├── test_matchmaking.py
-    ├── test_concurrent_moves.py
-    └── test_presence_and_stale_games.py
-
-infra/                    # AWS CDK stack — see docs/AWS_DEPLOYMENT.md
-alembic/                  # Database migrations
-docs/                     # Architecture rationale + deployment guide
+  unit/           # Pure logic: game, models, store, audit, ELO (incl. Hypothesis)
+  integration/    # Full HTTP/WS journeys with FakeRedis + mock DB
+  e2e/            # Playwright browser tests (opt-in via --e2e)
+infra/            # AWS CDK stack (Fargate + RDS + ElastiCache)
+alembic/          # Database migrations
+docs/             # Architecture rationale + deployment guide
 ```
+
+> Run `find app tests -name '*.py' | head -40` to see all source files.
 
 ---
 
@@ -141,6 +110,10 @@ cd connect4-realtime-prototype
 | `./setup.sh clean`  | Stop containers, remove volumes and `.venv`                  |
 
 Open **<http://localhost:8000>** to play, or **<http://localhost:8000/docs>** for the interactive API explorer.
+
+> **Mise users:** The project includes a `.mise.toml` that auto-selects Python 3.13 and activates `.venv`.
+> If `mise` is installed, `./setup.sh native` will configure the shell hook automatically.
+> For manual setup: `mise trust && eval "$(mise activate zsh)"` (or replace `zsh` with your shell).
 
 <details>
 <summary>Manual (Docker Compose only)</summary>
@@ -177,60 +150,11 @@ wscat -c ws://localhost:8000/ws/my-game
 
 ---
 
-## API Reference
+## API
 
-### Games
+Full REST API documentation is auto-generated — run the server and visit [`/docs`](http://localhost:8000/docs) for the interactive OpenAPI reference.
 
-| Method   | Endpoint                  | Description                                                 |
-| -------- | ------------------------- | ----------------------------------------------------------- |
-| `POST`   | `/games`                  | Create a new game (returns `WAITING` status)                |
-| `POST`   | `/games/{game_id}/join`   | Join a waiting game as player 2                             |
-| `POST`   | `/games/{game_id}/move`   | Make a move; returns board state, winner, and winning cells |
-| `GET`    | `/games/{game_id}`        | Current board state from Redis                              |
-| `GET`    | `/games/{game_id}/status` | Game + player metadata from PostgreSQL                      |
-| `GET`    | `/games/{game_id}/moves`  | Ordered move history for full replay                        |
-| `GET`    | `/games/recent`           | Recently finished games (default 10, max 100)               |
-| `GET`    | `/games/waiting`          | Games waiting for a second player                           |
-| `DELETE` | `/games/{game_id}/cancel` | Cancel a waiting game (creator only)                        |
-
-### Players
-
-| Method | Endpoint                           | Description                        |
-| ------ | ---------------------------------- | ---------------------------------- |
-| `POST` | `/players`                         | Register a new player              |
-| `GET`  | `/players/{player_id}/stats`       | ELO rating + win/loss/draw record  |
-| `GET`  | `/players/{player_id}/active-game` | Currently active game for a player |
-| `GET`  | `/players/{player_id}/games`       | Full game history for a player     |
-| `GET`  | `/leaderboard`                     | Top players ranked by ELO          |
-
-### Matchmaking
-
-| Method   | Endpoint                          | Description                          |
-| -------- | --------------------------------- | ------------------------------------ |
-| `POST`   | `/matchmaking/join`               | Enter the ELO-band matchmaking queue |
-| `GET`    | `/matchmaking/status/{player_id}` | Queue position or match result       |
-| `DELETE` | `/matchmaking/leave/{player_id}`  | Leave the matchmaking queue          |
-
-### Platform
-
-| Method | Endpoint     | Description                                    |
-| ------ | ------------ | ---------------------------------------------- |
-| `GET`  | `/stats`     | Live active game count and online player count |
-| `POST` | `/heartbeat` | Record a presence heartbeat for a player       |
-| `GET`  | `/docs`      | Interactive OpenAPI reference                  |
-
-### Move Payload
-
-```json
-{ "game_id": "abc-123", "player": 1, "column": 3 }
-```
-
-- `player`: `1` or `2`
-- `column`: `0`–`6` (left to right)
-
----
-
-## WebSocket Protocol
+### WebSocket Protocol
 
 Connect to `ws://host/ws/{game_id}` and exchange JSON messages:
 
@@ -251,18 +175,70 @@ Connect to `ws://host/ws/{game_id}` and exchange JSON messages:
 ## Testing
 
 ```bash
-pytest -v                  # 267 tests, ~2 s, no Redis/PostgreSQL needed
-pytest tests/unit/         # Unit tests only
+pytest -v                  # 267 unit + integration tests, ~2 s, no external deps
+pytest tests/unit/         # Unit tests only (includes property-based / Hypothesis)
 pytest tests/integration/  # Integration tests only
+pytest --e2e -v tests/e2e/ # 123 E2E browser tests (requires docker compose up)
 ```
 
-All tests run against an **in-process FakeRedis** and **mock DB sessions** — no external services required.
+All unit and integration tests run against an **in-process FakeRedis** and **mock DB sessions** — no external services required.
 
-| Suite          | Tests | What it covers                                                                |
-| -------------- | ----- | ----------------------------------------------------------------------------- |
-| Unit           | 97    | Game logic, Pydantic models, store ops, audit, ELO, connection manager        |
-| Property-based | 11    | Hypothesis-driven invariants on game logic                                    |
-| Integration    | 159   | Full HTTP/WS journeys, matchmaking pipelines, concurrent moves, auto-recovery |
+| Suite         | Tests | What it covers                                                           |
+| ------------- | ----- | ------------------------------------------------------------------------ |
+| Unit          | 127   | Game logic (incl. Hypothesis), models, store, audit, ELO, connection mgr |
+| Integration   | 140   | Full HTTP/WS journeys, matchmaking pipelines, concurrent moves, recovery |
+| E2E (browser) | 123   | Playwright browser tests: real clicks, screen flows, refresh recovery    |
+
+### E2E Browser Tests (Playwright)
+
+End-to-end tests drive a real Chromium browser against the running application.
+They cover user flows that unit/integration tests cannot: CSS animations,
+screen transitions, WebSocket-driven updates across two browser tabs,
+page refresh recovery, and session persistence.
+
+```bash
+# 1. Install E2E dependencies + browser
+pip install -e ".[dev,e2e]"
+playwright install chromium
+
+# 2. Start the full stack
+docker compose up --build -d
+
+# 3. Run E2E tests
+pytest --e2e -v tests/e2e/
+
+# Run a specific E2E test
+pytest --e2e -v tests/e2e/test_game_lobby.py::test_matchmaking_cancel_and_retry_spinner_animates
+```
+
+E2E tests are **opt-in** — they require the `--e2e` flag and a running server.
+Without `--e2e`, they are automatically skipped so `pytest -v` remains fast
+and dependency-free.
+
+<details>
+<summary>What the E2E suite covers (123 tests)</summary>
+
+- **Lobby (13)** — registration, validation, duplicate username error,
+  live stats polling, leaderboard entries, form elements
+- **Game lobby (31)** — create, cancel, join, matchmaking cancel/retry (regression),
+  leaderboard toggle, player stats card, game history with results/replay buttons,
+  auto-refresh, re-entry state reset
+- **Gameplay (47)** — two-player moves, vertical/horizontal/diagonal wins,
+  draw detection, full-column rejection, winning cell highlights,
+  confetti (winner-only), game-over text, last-move indicator,
+  active-turn card, countdown ring, idle taunts,
+  rematch flow (waiting/accepted/fallback), WS disconnect status,
+  board-disabled class, toast notifications,
+  hover indicators (clear/disabled on game-over),
+  leave cleanup (confetti/toasts),
+  player card CSS classes (is-me/online/offline/color)
+- **Replay (14)** — board rendering, next/prev/start/end controls,
+  button disabled states, slider, last-move highlight, legend, back-to-lobby
+- **Navigation (18)** — page refresh on every screen, session recovery,
+  corrupt sessionStorage handling, screen-transition invariant (single active screen),
+  quick-play URL params, stats polling lifecycle, finished-game resume
+
+</details>
 
 ---
 
@@ -270,17 +246,19 @@ All tests run against an **in-process FakeRedis** and **mock DB sessions** — n
 
 ```bash
 pip install -e ".[dev]"    # Install with dev dependencies
+pip install -e ".[e2e]"    # Install E2E test dependencies (Playwright)
 
 ruff check app/ tests/     # Lint
 ruff format app/ tests/    # Format
 
-pytest -v                  # Run all tests
+pytest -v                  # Run unit + integration tests
+pytest --e2e -v            # Run E2E browser tests (requires docker compose up)
 
 alembic upgrade head       # Apply database migrations
 alembic revision --autogenerate -m "description"  # Generate migration
 ```
 
-Pre-commit hooks run automatically on `git commit`: trailing whitespace, YAML/TOML checks, ruff lint + format, and the full test suite.
+Pre-commit hooks (trailing whitespace, YAML/TOML checks, ruff, pytest) are configured — run `pre-commit install` once after cloning to enable them.
 
 ---
 

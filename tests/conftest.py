@@ -14,6 +14,28 @@ from app.database import get_db
 from app.main import app
 
 # ---------------------------------------------------------------------------
+# CLI option: --e2e flag to opt-in to browser tests
+# ---------------------------------------------------------------------------
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register the ``--e2e`` flag for browser test opt-in."""
+    parser.addoption(
+        "--e2e", action="store_true", default=False, help="Run E2E browser tests (requires running server)"
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Auto-skip tests marked ``e2e`` unless ``--e2e`` is explicitly passed."""
+    if config.getoption("--e2e"):
+        return
+    skip_marker = pytest.mark.skip(reason="E2E tests require --e2e flag and a running server (docker compose up)")
+    for item in items:
+        if "e2e" in item.keywords:
+            item.add_marker(skip_marker)
+
+
+# ---------------------------------------------------------------------------
 # FakeRedis — in-process fake with sorted-set support for matchmaking
 # ---------------------------------------------------------------------------
 
