@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -97,6 +98,10 @@ async def heartbeat(player_id: str | None = Body(None, embed=True)) -> None:
         player_id: UUID string of the player (from request body).
     """
     if player_id:
+        try:
+            uuid.UUID(player_id)
+        except ValueError:
+            return
         manager.heartbeat(player_id)
 
 
