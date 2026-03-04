@@ -762,6 +762,12 @@ function animateDrop(row, col, player) {
         state.lastMoveCell = null;
     }
 
+    /* Bump generation so stale animationend handlers from overlapping
+       animations become no-ops — fixes multiple last-move rings when
+       moves arrive faster than an in-flight animation (e.g. feather). */
+    state.dropGeneration = (state.dropGeneration || 0) + 1;
+    const gen = state.dropGeneration;
+
     const fallDistance = row + 1;
     const effect = pickDropEffect(state.moveCount);
     state.moveCount = (state.moveCount || 0) + 1;
@@ -817,11 +823,14 @@ function animateDrop(row, col, player) {
         }
     }
 
-    /* After any animation settles, mark this cell as the last move */
+    /* After any animation settles, mark this cell as the last move —
+       but only if no newer animateDrop call has run since (gen check). */
     cell.addEventListener("animationend", () => {
         cell.style.animation = "";
-        cell.classList.add("last-move");
-        state.lastMoveCell = cell;
+        if (gen === state.dropGeneration) {
+            cell.classList.add("last-move");
+            state.lastMoveCell = cell;
+        }
     }, { once: true });
 }
 
