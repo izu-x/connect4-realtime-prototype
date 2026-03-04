@@ -112,6 +112,11 @@ async function refreshStats() {
         const stats = await api("GET", "/stats");
         $("#stat-games").textContent = stats.active_games;
         $("#stat-players").textContent = stats.online_players;
+        /* Also update game-lobby stats card if present */
+        const glGames = document.getElementById("gl-stat-games");
+        const glPlayers = document.getElementById("gl-stat-players");
+        if (glGames) glGames.textContent = stats.active_games;
+        if (glPlayers) glPlayers.textContent = stats.online_players;
     } catch { /* non-critical */ }
 }
 
@@ -536,12 +541,17 @@ $("#btn-matchmaking").addEventListener("click", async () => {
 
 function pollMatchmaking() {
     clearInterval(state.matchmakingTimer);
-    state.matchmakingTimer = setInterval(async () => {
+    const timerId = setInterval(async () => {
+        /* Guard: if this timer was replaced or cancelled, bail out */
+        if (state.matchmakingTimer !== timerId) return;
         try {
             const matchStatus = await api("GET", `/matchmaking/status/${state.playerId}`);
+            /* Re-check after await — cancel or new session may have started */
+            if (state.matchmakingTimer !== timerId) return;
             if (matchStatus.status === "matched") {
                 /* Server found us a match */
                 clearInterval(state.matchmakingTimer);
+                state.matchmakingTimer = null;
                 $("#matchmaking-card").style.display = "none";
                 state.gameId = matchStatus.game_id;
                 state.myPlayer = matchStatus.my_player;
@@ -562,6 +572,7 @@ function pollMatchmaking() {
             }
         } catch { /* keep polling */ }
     }, 2000);
+    state.matchmakingTimer = timerId;
 }
 
 $("#btn-cancel-wait").addEventListener("click", async () => {
@@ -582,11 +593,14 @@ $("#btn-cancel-wait").addEventListener("click", async () => {
 $("#btn-cancel-matchmaking").addEventListener("click", async () => {
     clearInterval(state.matchmakingTimer);
     state.matchmakingTimer = null;
+    /* Hide card immediately to prevent flash if a new session starts */
+    $("#matchmaking-card").style.display = "none";
+    /* Complete the server-side leave BEFORE re-enabling the button. This
+       prevents a race where a stale DELETE removes a freshly-queued entry
+       created by the next join click. */
     try {
         await api("DELETE", `/matchmaking/leave/${state.playerId}`);
     } catch { /* ignore */ }
-    $("#matchmaking-card").style.display = "none";
-    /* Re-enable the Find Opponent button */
     const btn = $("#btn-matchmaking");
     if (btn) { btn.disabled = false; btn.textContent = "Find Opponent"; }
 });

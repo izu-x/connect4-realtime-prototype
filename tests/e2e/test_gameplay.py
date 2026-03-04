@@ -12,6 +12,7 @@ from playwright.sync_api import Page, expect  # noqa: E402
 from tests.e2e.conftest import (  # noqa: E402
     make_move,
     play_diagonal_win,
+    play_to_draw,
     play_vertical_win,
     setup_two_player_game,
     wait_for_game_over,
@@ -437,22 +438,7 @@ def test_game_over_banner_shows_draw_text(two_players: tuple[Page, Page]) -> Non
     page1, page2 = two_players
     setup_two_player_game(page1, page2)
 
-    # Play a game to draw using a pattern that avoids connect-4
-    # Fill board column by column to avoid any winning lines
-    # This is a minimal draw pattern — columns 0,2,4,6 filled P1-first, cols 1,3,5 P2-first
-    for col in [0, 2, 4, 6]:
-        for _ in range(3):
-            make_move(page1, col)
-            page1.wait_for_timeout(350)
-            make_move(page2, col)
-            page2.wait_for_timeout(350)
-
-    for col in [1, 3, 5]:
-        for _ in range(3):
-            make_move(page2, col)
-            page2.wait_for_timeout(350)
-            make_move(page1, col)
-            page1.wait_for_timeout(350)
+    play_to_draw(page1, page2)
 
     wait_for_game_over(page1)
     expect(page1.locator("#game-over-text")).to_contain_text("draw", ignore_case=True)
@@ -549,20 +535,7 @@ def test_board_shake_animation_on_draw(two_players: tuple[Page, Page]) -> None:
     page1, page2 = two_players
     setup_two_player_game(page1, page2)
 
-    # Fill the board to a draw
-    for col in [0, 2, 4, 6]:
-        for _ in range(3):
-            make_move(page1, col)
-            page1.wait_for_timeout(350)
-            make_move(page2, col)
-            page2.wait_for_timeout(350)
-
-    for col in [1, 3, 5]:
-        for _ in range(3):
-            make_move(page2, col)
-            page2.wait_for_timeout(350)
-            make_move(page1, col)
-            page1.wait_for_timeout(350)
+    play_to_draw(page1, page2)
 
     wait_for_game_over(page1)
     # The shaking class is added then removed via animationend — just verify game ended as draw

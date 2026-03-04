@@ -102,12 +102,20 @@ def test_matchmaking_shows_card_and_spinner(player_page: Page) -> None:
     expect(player_page.locator("#matchmaking-card")).to_be_visible()
     expect(player_page.locator("#matchmaking-card .spinner")).to_be_visible()
 
+    # Cleanup: leave the matchmaking queue so ghost entries don't affect later tests
+    player_page.click("#btn-cancel-matchmaking")
+    expect(player_page.locator("#btn-matchmaking")).to_be_enabled(timeout=DEFAULT_TIMEOUT)
+
 
 def test_matchmaking_button_disabled_during_search(player_page: Page) -> None:
     """The 'Find Opponent' button should be disabled while matchmaking is active."""
     player_page.click("#btn-matchmaking")
 
     expect(player_page.locator("#btn-matchmaking")).to_be_disabled()
+
+    # Cleanup: leave the matchmaking queue so ghost entries don't affect later tests
+    player_page.click("#btn-cancel-matchmaking")
+    expect(player_page.locator("#btn-matchmaking")).to_be_enabled(timeout=DEFAULT_TIMEOUT)
 
 
 def test_cancel_matchmaking_hides_card(player_page: Page) -> None:
@@ -157,12 +165,18 @@ def test_matchmaking_cancel_and_retry_spinner_animates(player_page: Page) -> Non
         f"Spinner animation-name is '{animation_name}'. CSS animation may have been cleared."
     )
 
+    # Cleanup: leave the matchmaking queue so ghost entries don't affect later tests
+    player_page.click("#btn-cancel-matchmaking")
+    expect(player_page.locator("#btn-matchmaking")).to_be_enabled(timeout=DEFAULT_TIMEOUT)
+
 
 def test_matchmaking_cancel_and_retry_multiple_times(player_page: Page) -> None:
     """Cancel and retry matchmaking 3 times — spinner must work every time."""
     for i in range(3):
         player_page.click("#btn-matchmaking")
         expect(player_page.locator("#matchmaking-card .spinner")).to_be_visible()
+        # Allow CSS animation to initialise before sampling
+        player_page.wait_for_timeout(500)
 
         animation_state = player_page.locator("#matchmaking-card .spinner").evaluate(
             "el => getComputedStyle(el).animationPlayState"
@@ -171,6 +185,8 @@ def test_matchmaking_cancel_and_retry_multiple_times(player_page: Page) -> None:
 
         player_page.click("#btn-cancel-matchmaking")
         expect(player_page.locator("#matchmaking-card")).not_to_be_visible()
+        # Wait for the server-side DELETE to complete (button re-enables after)
+        expect(player_page.locator("#btn-matchmaking")).to_be_enabled(timeout=DEFAULT_TIMEOUT)
         player_page.wait_for_timeout(300)
 
 
