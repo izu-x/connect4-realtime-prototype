@@ -205,9 +205,11 @@ def play_diagonal_win(page1: Page, page2: Page) -> None:
 def play_to_draw(page1: Page, page2: Page) -> None:
     """Play a full 42-move game that ends in a draw.
 
-    Fills columns in pairs so that adjacent columns get opposite starting
-    players, which prevents horizontal and diagonal connect-4.  The move
-    sequence respects global turn alternation (P1 on odd turns, P2 on even).
+    Fills columns in *non-adjacent* pairs (0+2, 1+3, 4+6) using an
+    interleaved pattern so that each pair of adjacent columns ends up
+    with opposite starting players.  This prevents any horizontal or
+    diagonal connect-4.  The move sequence respects global turn
+    alternation (P1 on even-indexed turns, P2 on odd).
 
     Target board (bottom=row 5)::
 
@@ -237,6 +239,12 @@ def play_to_draw(page1: Page, page2: Page) -> None:
         move_columns.extend([col_a, col_b, col_b, col_a, col_a, col_b, col_b, col_a, col_a, col_b, col_b, col_a])
     # Remaining column 5 filled straight
     move_columns.extend([5, 5, 5, 5, 5, 5])
+
+    # Sanity-check invariants: full board (42 moves) and each column used 6 times.
+    assert len(move_columns) == 42, f"Expected 42 moves, got {len(move_columns)}"
+    for col_index in range(7):
+        count = move_columns.count(col_index)
+        assert count == 6, f"Expected 6 moves in column {col_index}, got {count}"
 
     for turn, col in enumerate(move_columns):
         player_page = page1 if turn % 2 == 0 else page2  # P1 on even index (turn 0=move 1)
