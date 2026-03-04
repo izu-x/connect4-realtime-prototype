@@ -639,6 +639,9 @@ function startGame(gameId) {
     state.gameOver = false;
     state.moveCount = 0;
     state.lastMoveCell = null;
+    /* Invalidate drop generation so in-flight animationend handlers
+       from a previous game cannot affect the new board. */
+    state.dropGeneration = (state.dropGeneration || 0) + 1;
     state.connectedPlayers = [];
     state.board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 
@@ -824,13 +827,14 @@ function animateDrop(row, col, player) {
     }
 
     /* After any animation settles, mark this cell as the last move —
-       but only if no newer animateDrop call has run since (gen check). */
+       but only if no newer animateDrop call has run since (gen check).
+       Return early when stale so the handler is a true no-op and cannot
+       clear/cancel an animation that belongs to a newer drop or a new game. */
     cell.addEventListener("animationend", () => {
+        if (gen !== state.dropGeneration) return;
         cell.style.animation = "";
-        if (gen === state.dropGeneration) {
-            cell.classList.add("last-move");
-            state.lastMoveCell = cell;
-        }
+        cell.classList.add("last-move");
+        state.lastMoveCell = cell;
     }, { once: true });
 }
 
@@ -1150,6 +1154,10 @@ function connectWebSocket(gameId) {
             state.gameOver = false;
             state.currentTurn = 1;
             state.moveCount = 0;
+            /* Invalidate drop generation so any in-flight animationend
+               handlers from the previous game become true no-ops. */
+            state.dropGeneration = (state.dropGeneration || 0) + 1;
+            state.lastMoveCell = null;
             state.board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
             stopCountdown();
             $("#game-over-banner").style.display = "none";
