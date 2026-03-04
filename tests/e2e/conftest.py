@@ -205,33 +205,50 @@ def play_diagonal_win(page1: Page, page2: Page) -> None:
 def play_to_draw(page1: Page, page2: Page) -> None:
     """Play a full 42-move game that ends in a draw.
 
-    Uses a column-fill pattern that avoids any 4-in-a-row:
-        Cols 0,2,4,6 filled P1-first (P1,P2,P1,P2,P1,P2 bottom-to-top)
-        Cols 1,3,5   filled P2-first (P2,P1,P2,P1,P2,P1 bottom-to-top)
+    Fills columns in *non-adjacent* pairs (0+2, 1+3, 4+6) using an
+    interleaved pattern that produces the 2×2 repeating block shown
+    below. This tiling caps any horizontal, vertical, or diagonal run
+    of identical pieces at length 2, so no connect-4 is ever formed.
+    The move sequence respects global turn alternation (P1 on
+    even-indexed turns, P2 on odd).
 
-    This creates a vertical pattern 121212/212121 which never forms horizontal
-    or diagonal connect-4 because adjacent columns alternate starting players.
+    Target board (bottom=row 5)::
+
+        Row 0: P2 P2 P1 P1 P2 P2 P1
+        Row 1: P1 P1 P2 P2 P1 P1 P2
+        Row 2: P2 P2 P1 P1 P2 P2 P1
+        Row 3: P1 P1 P2 P2 P1 P1 P2
+        Row 4: P2 P2 P1 P1 P2 P2 P1
+        Row 5: P1 P1 P2 P2 P1 P1 P2
+
+    Max consecutive in any direction = 2 → guaranteed draw.
+
+    Pairs filled using pattern A,B,B,A,A,B,B,A,A,B,B,A (12 moves each):
+        (col 0 P1-first, col 2 P2-first)
+        (col 1 P1-first, col 3 P2-first)
+        (col 4 P1-first, col 6 P2-first)
+    Remaining col 5 (P1-first) filled last on turns 37-42.
 
     Args:
         page1: Player 1's page.
         page2: Player 2's page.
     """
-    # Build column order: fill column-by-column
-    # P1-first columns: 0,2,4,6 → each column gets 6 cells: P1,P2,P1,P2,P1,P2
-    # P2-first columns: 1,3,5   → each column gets 6 cells: P2,P1,P2,P1,P2,P1
-    move_sequence: list[tuple[Page, int]] = []
+    # Each pair: (P1-first col A, P2-first col B)
+    # 12-move pattern per pair: A B B A  A B B A  A B B A
+    move_columns: list[int] = []
+    for col_a, col_b in [(0, 2), (1, 3), (4, 6)]:
+        move_columns.extend([col_a, col_b, col_b, col_a, col_a, col_b, col_b, col_a, col_a, col_b, col_b, col_a])
+    # Remaining column 5 filled straight
+    move_columns.extend([5, 5, 5, 5, 5, 5])
 
-    for col in [0, 2, 4, 6]:  # P1-first columns
-        for i in range(6):
-            page = page1 if i % 2 == 0 else page2
-            move_sequence.append((page, col))
+    # Sanity-check invariants: full board (42 moves) and each column used 6 times.
+    assert len(move_columns) == 42, f"Expected 42 moves, got {len(move_columns)}"
+    for col_index in range(7):
+        count = move_columns.count(col_index)
+        assert count == 6, f"Expected 6 moves in column {col_index}, got {count}"
 
-    for col in [1, 3, 5]:  # P2-first columns
-        for i in range(6):
-            page = page2 if i % 2 == 0 else page1
-            move_sequence.append((page, col))
-
-    for player_page, col in move_sequence:
+    for turn, col in enumerate(move_columns):
+        player_page = page1 if turn % 2 == 0 else page2  # P1 on even index (turn 0=move 1)
         make_move(player_page, col)
         player_page.wait_for_timeout(350)
 

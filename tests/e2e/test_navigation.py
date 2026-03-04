@@ -405,10 +405,10 @@ def test_stats_polling_active_on_game_lobby(page: Page) -> None:
     page.wait_for_timeout(2000)
 
     # Stats card should be visible on the game lobby screen
-    expect(page.locator("#stats-card")).to_be_visible()
+    expect(page.locator("#game-lobby-stats-card")).to_be_visible()
 
-    games_text = page.text_content("#stat-games")
-    players_text = page.text_content("#stat-players")
+    games_text = page.text_content("#gl-stat-games")
+    players_text = page.text_content("#gl-stat-players")
 
     assert games_text is not None and games_text.strip().isdigit(), "Active games stat should be numeric"
     assert players_text is not None and players_text.strip().isdigit(), "Online players stat should be numeric"

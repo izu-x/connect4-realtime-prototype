@@ -362,7 +362,7 @@ button.rejoin-btn:hover {
     height: 14px;
     background: linear-gradient(180deg, #d97706 0%, #b45309 100%);
     border-radius: 0 0 10px 10px;
-    box-shadow: 0 4px 0 #7c3a00, inset 0 1px 0 rgba(255,255,255,0.2);
+    box-shadow: 0 4px 0 #7c3a00, inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .board {
@@ -372,25 +372,23 @@ button.rejoin-btn:hover {
     gap: 6px;
     /* Solid plastic look — subtle ribbing via repeating gradient */
     background:
-        repeating-linear-gradient(
-            180deg,
-            rgba(255,255,255,0.03) 0px,
-            rgba(255,255,255,0.03) 1px,
+        repeating-linear-gradient(180deg,
+            rgba(255, 255, 255, 0.03) 0px,
+            rgba(255, 255, 255, 0.03) 1px,
             transparent 1px,
-            transparent 8px
-        ),
+            transparent 8px),
         linear-gradient(170deg, #4b8cf5 0%, #2563eb 45%, #1a47c9 100%);
     padding: 12px;
     border-radius: calc(var(--radius) + 4px);
     /* Thick plastic frame: right & bottom faces visible */
     box-shadow:
-        4px 0  0 #1a3ea8,
-        0   8px 0 #1a3ea8,
+        4px 0 0 #1a3ea8,
+        0 8px 0 #1a3ea8,
         6px 10px 0 #0f2670,
         inset 0 2px 0 rgba(255, 255, 255, 0.28),
         inset 0 -2px 0 rgba(0, 0, 0, 0.3),
-        inset 3px 0 0 rgba(255,255,255,0.08),
-        inset -3px 0 0 rgba(0,0,0,0.2);
+        inset 3px 0 0 rgba(255, 255, 255, 0.08),
+        inset -3px 0 0 rgba(0, 0, 0, 0.2);
     border: 3px solid #0d0d0d;
     outline: none;
 }
@@ -423,13 +421,16 @@ button.rejoin-btn:hover {
 /* Base = outer rim ring (darker), ::before = recessed inner disc (bright) */
 
 .cell.p1 {
-    background: #9b1515;             /* dark red rim ring */
-    box-shadow: 0 0 0 3px #111;      /* bold cartoon outline */
+    background: #9b1515;
+    /* dark red rim ring */
+    box-shadow: 0 0 0 3px #111;
+    /* bold cartoon outline */
     cursor: default;
 }
 
 .cell.p2 {
-    background: #a07000;             /* dark amber rim ring */
+    background: #a07000;
+    /* dark amber rim ring */
     box-shadow: 0 0 0 3px #111;
     cursor: default;
 }
@@ -453,8 +454,10 @@ button.rejoin-btn:hover {
     border-radius: 50%;
     background: radial-gradient(circle at 50% 46%, #ff7070 0%, #e52222 65%);
     box-shadow:
-        inset 0 3px 7px rgba(0, 0, 0, 0.45),   /* top-down depth */
-        inset 0 -1px 3px rgba(0, 0, 0, 0.20);  /* bottom shadow */
+        inset 0 3px 7px rgba(0, 0, 0, 0.45),
+        /* top-down depth */
+        inset 0 -1px 3px rgba(0, 0, 0, 0.20);
+    /* bottom shadow */
     z-index: 1;
     pointer-events: none;
 }
@@ -499,9 +502,22 @@ button.rejoin-btn:hover {
 }
 
 @keyframes winCell {
-    0%   { transform: scale(0.55); filter: brightness(3) saturate(1.5); opacity: 0.6; }
-    55%  { transform: scale(1.22); filter: brightness(1.6) saturate(1.3); opacity: 1; }
-    100% { transform: scale(1.1);  filter: brightness(1.3) saturate(1.2); }
+    0% {
+        transform: scale(0.55);
+        filter: brightness(3) saturate(1.5);
+        opacity: 0.6;
+    }
+
+    55% {
+        transform: scale(1.22);
+        filter: brightness(1.6) saturate(1.3);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1.1);
+        filter: brightness(1.3) saturate(1.2);
+    }
 }
 
 .cell.dimmed {
@@ -533,11 +549,29 @@ button.rejoin-btn:hover {
 }
 
 @keyframes tauntFloat {
-    0%   { transform: scale(0.2) translateY(0);     opacity: 0; }
-    12%  { opacity: 0.60; }
-    50%  { transform: scale(1.6) translateY(-20px);  opacity: 0.55; }
-    80%  { transform: scale(2.8) translateY(-50px);  opacity: 0.35; }
-    100% { transform: scale(3.8) translateY(-90px);  opacity: 0; }
+    0% {
+        transform: scale(0.2) translateY(0);
+        opacity: 0;
+    }
+
+    12% {
+        opacity: 0.60;
+    }
+
+    50% {
+        transform: scale(1.6) translateY(-20px);
+        opacity: 0.55;
+    }
+
+    80% {
+        transform: scale(2.8) translateY(-50px);
+        opacity: 0.35;
+    }
+
+    100% {
+        transform: scale(3.8) translateY(-90px);
+        opacity: 0;
+    }
 }
 
 /* Hover indicator row — ghost piece preview */
@@ -577,8 +611,15 @@ button.rejoin-btn:hover {
 }
 
 @keyframes ghostFloat {
-    0%, 100% { transform: translateY(0); }
-    50%       { transform: translateY(-8px); }
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-8px);
+    }
 }
 
 /* Drop animation — squash & stretch physics */
@@ -643,46 +684,134 @@ button.rejoin-btn:hover {
 }
 
 @keyframes lastMoveRing {
-    0%, 100% { outline-color: rgba(255, 255, 255, 0.90); outline-offset: -1px; }
-    50%       { outline-color: rgba(255, 255, 255, 0.20); outline-offset:  3px; }
+
+    0%,
+    100% {
+        outline-color: rgba(255, 255, 255, 0.90);
+        outline-offset: -1px;
+    }
+
+    50% {
+        outline-color: rgba(255, 255, 255, 0.20);
+        outline-offset: 3px;
+    }
 }
 
 /* ---- SLAM — ultra fast, heavy pancake, board quakes ---- */
 @keyframes dropSlam {
-    0%   { transform: translateY(-400px) scale(0.85, 1.25); opacity: 0; }
-    6%   { opacity: 1; }
-    48%  { transform: translateY(12px) scale(1.60, 0.46); }
-    63%  { transform: translateY(-8px)  scale(0.78, 1.24); }
-    77%  { transform: translateY(4px)   scale(1.10, 0.92); }
-    100% { transform: translateY(0)     scale(1, 1); }
+    0% {
+        transform: translateY(-400px) scale(0.85, 1.25);
+        opacity: 0;
+    }
+
+    6% {
+        opacity: 1;
+    }
+
+    48% {
+        transform: translateY(12px) scale(1.60, 0.46);
+    }
+
+    63% {
+        transform: translateY(-8px) scale(0.78, 1.24);
+    }
+
+    77% {
+        transform: translateY(4px) scale(1.10, 0.92);
+    }
+
+    100% {
+        transform: translateY(0) scale(1, 1);
+    }
 }
 
 /* ---- FEATHER — dreamy slow float ---- */
 @keyframes dropFeather {
-    0%   { transform: translateY(-300px) scale(1) rotate(-6deg); opacity: 0; }
-    12%  { opacity: 1; }
-    40%  { transform: translateY(14px)   scale(1.03, 0.97) rotate(4deg); }
-    56%  { transform: translateY(-10px)  scale(0.97, 1.03) rotate(-3deg); }
-    70%  { transform: translateY(5px)    scale(1.02, 0.99) rotate(1deg); }
-    84%  { transform: translateY(-2px)   scale(0.99, 1.01) rotate(0deg); }
-    100% { transform: translateY(0)      scale(1) rotate(0deg); }
+    0% {
+        transform: translateY(-300px) scale(1) rotate(-6deg);
+        opacity: 0;
+    }
+
+    12% {
+        opacity: 1;
+    }
+
+    40% {
+        transform: translateY(14px) scale(1.03, 0.97) rotate(4deg);
+    }
+
+    56% {
+        transform: translateY(-10px) scale(0.97, 1.03) rotate(-3deg);
+    }
+
+    70% {
+        transform: translateY(5px) scale(1.02, 0.99) rotate(1deg);
+    }
+
+    84% {
+        transform: translateY(-2px) scale(0.99, 1.01) rotate(0deg);
+    }
+
+    100% {
+        transform: translateY(0) scale(1) rotate(0deg);
+    }
 }
 
 /* ---- BOARD VIBRATE for slam_ultra ---- */
 @keyframes boardVibrate {
-    0%, 100% { transform: translate(0, 0); }
-    7%   { transform: translate(-5px, -3px) rotate(-0.4deg); }
-    14%  { transform: translate(5px,  3px)  rotate( 0.4deg); }
-    21%  { transform: translate(-4px,  2px) rotate(-0.3deg); }
-    28%  { transform: translate(4px,  -2px) rotate( 0.3deg); }
-    35%  { transform: translate(-3px,  3px); }
-    42%  { transform: translate(3px,  -3px); }
-    50%  { transform: translate(-4px,  1px); }
-    57%  { transform: translate(4px,  -1px); }
-    64%  { transform: translate(-2px,  2px); }
-    72%  { transform: translate(2px,   0px); }
-    80%  { transform: translate(-1px,  1px); }
-    90%  { transform: translate(1px,   0px); }
+
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+
+    7% {
+        transform: translate(-5px, -3px) rotate(-0.4deg);
+    }
+
+    14% {
+        transform: translate(5px, 3px) rotate(0.4deg);
+    }
+
+    21% {
+        transform: translate(-4px, 2px) rotate(-0.3deg);
+    }
+
+    28% {
+        transform: translate(4px, -2px) rotate(0.3deg);
+    }
+
+    35% {
+        transform: translate(-3px, 3px);
+    }
+
+    42% {
+        transform: translate(3px, -3px);
+    }
+
+    50% {
+        transform: translate(-4px, 1px);
+    }
+
+    57% {
+        transform: translate(4px, -1px);
+    }
+
+    64% {
+        transform: translate(-2px, 2px);
+    }
+
+    72% {
+        transform: translate(2px, 0px);
+    }
+
+    80% {
+        transform: translate(-1px, 1px);
+    }
+
+    90% {
+        transform: translate(1px, 0px);
+    }
 }
 
 #board-container.vibrating {
@@ -695,24 +824,66 @@ button.rejoin-btn:hover {
 }
 
 @keyframes colQuake {
-    0%   { transform: translateY(0); }
-    22%  { transform: translateY(-10px) scaleY(1.06); }
-    50%  { transform: translateY(5px)   scaleY(0.96); }
-    75%  { transform: translateY(-3px)  scaleY(1.02); }
-    100% { transform: translateY(0)     scaleY(1); }
+    0% {
+        transform: translateY(0);
+    }
+
+    22% {
+        transform: translateY(-10px) scaleY(1.06);
+    }
+
+    50% {
+        transform: translateY(5px) scaleY(0.96);
+    }
+
+    75% {
+        transform: translateY(-3px) scaleY(1.02);
+    }
+
+    100% {
+        transform: translateY(0) scaleY(1);
+    }
 }
 
 /* ---- BOARD SHAKE for draw ---- */
 @keyframes boardShake {
-    0%, 100% { transform: translateX(0) rotate(0); }
-    10%  { transform: translateX(-9px) rotate(-0.6deg); }
-    20%  { transform: translateX(9px)  rotate( 0.6deg); }
-    30%  { transform: translateX(-7px) rotate(-0.4deg); }
-    40%  { transform: translateX(7px)  rotate( 0.4deg); }
-    55%  { transform: translateX(-5px); }
-    68%  { transform: translateX(5px); }
-    80%  { transform: translateX(-2px); }
-    90%  { transform: translateX(2px); }
+
+    0%,
+    100% {
+        transform: translateX(0) rotate(0);
+    }
+
+    10% {
+        transform: translateX(-9px) rotate(-0.6deg);
+    }
+
+    20% {
+        transform: translateX(9px) rotate(0.6deg);
+    }
+
+    30% {
+        transform: translateX(-7px) rotate(-0.4deg);
+    }
+
+    40% {
+        transform: translateX(7px) rotate(0.4deg);
+    }
+
+    55% {
+        transform: translateX(-5px);
+    }
+
+    68% {
+        transform: translateX(5px);
+    }
+
+    80% {
+        transform: translateX(-2px);
+    }
+
+    90% {
+        transform: translateX(2px);
+    }
 }
 
 #board-container.shaking {
@@ -748,10 +919,21 @@ button.rejoin-btn:hover {
 
 /* Micro-bounce when turn changes */
 @keyframes statusPop {
-    0%   { transform: scale(1); }
-    40%  { transform: scale(1.12); }
-    70%  { transform: scale(0.96); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+
+    40% {
+        transform: scale(1.12);
+    }
+
+    70% {
+        transform: scale(0.96);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 .status.pop {
@@ -993,10 +1175,8 @@ code {
     position: absolute;
     inset: -3px;
     border-radius: 15px;
-    background: conic-gradient(
-        var(--cd-color, rgba(255,255,255,0.5)) calc(var(--cd-pct, 0) * 1%),
-        transparent 0%
-    );
+    background: conic-gradient(var(--cd-color, rgba(255, 255, 255, 0.5)) calc(var(--cd-pct, 0) * 1%),
+            transparent 0%);
     -webkit-mask:
         linear-gradient(#000 0 0) content-box,
         linear-gradient(#000 0 0);
@@ -1038,8 +1218,15 @@ code {
 }
 
 @keyframes cardPulse {
-    0%, 100% { box-shadow: 0 0 8px rgba(250, 204, 21, 0.2); }
-    50%       { box-shadow: 0 0 22px rgba(250, 204, 21, 0.55), 0 0 40px rgba(250, 204, 21, 0.15); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 8px rgba(250, 204, 21, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 0 22px rgba(250, 204, 21, 0.55), 0 0 40px rgba(250, 204, 21, 0.15);
+    }
 }
 
 .player-card.active-turn::after {
@@ -1251,6 +1438,37 @@ code {
 .result-draw {
     color: var(--accent);
     background: rgba(250, 204, 21, 0.12);
+}
+
+/* ================================================================== */
+/* Replay legend                                                      */
+/* ================================================================== */
+.replay-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.replay-legend-dot {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+
+.replay-legend-dot.p1-dot {
+    background: var(--p1);
+    box-shadow: 0 0 8px var(--p1-glow);
+}
+
+.replay-legend-dot.p2-dot {
+    background: var(--p2);
+    box-shadow: 0 0 8px var(--p2-glow);
 }
 
 /* ================================================================== */

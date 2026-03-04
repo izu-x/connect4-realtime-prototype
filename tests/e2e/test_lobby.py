@@ -110,10 +110,11 @@ def test_register_long_username(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_duplicate_username_shows_error(page: Page) -> None:
-    """Registering an already-taken username should show an inline error.
+def test_duplicate_username_logs_in_as_returning_player(page: Page) -> None:
+    """Registering an already-taken username should log in as a returning player.
 
-    Creates a player, opens a second page and tries the same name.
+    The server intentionally returns the existing player rather than an error,
+    so the second page should navigate to the game lobby.
     """
 
     name = unique_username()
@@ -127,12 +128,10 @@ def test_duplicate_username_shows_error(page: Page) -> None:
     page2.goto(BASE_URL)
     page2.fill("#input-username", name)
     page2.click('#form-register button[type="submit"]')
-    page2.wait_for_timeout(3000)
 
-    # Should stay on the lobby with an error message
-    error_text = page2.text_content("#lobby-error")
-    assert error_text is not None and len(error_text.strip()) > 0, "Expected an error message for duplicate username"
-    expect(page2.locator("#screen-lobby")).to_have_class("screen active")
+    # Should navigate to the game lobby as a returning player (no error)
+    page2.wait_for_selector("#screen-games.active", timeout=10_000)
+    expect(page2.locator("#display-username")).to_have_text(name)
 
 
 def test_stats_polling_updates_values(page: Page) -> None:
