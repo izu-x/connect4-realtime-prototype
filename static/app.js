@@ -741,7 +741,7 @@ function renderBoard(board) {
             const cell = cells[idx];
             const val = board[r][c];
 
-            cell.classList.remove("p1", "p2", "drop", "win", "dimmed");
+            cell.classList.remove("p1", "p2", "drop", "win", "dimmed", "last-move");
 
             if (val === 1) cell.classList.add("p1");
             else if (val === 2) cell.classList.add("p2");
