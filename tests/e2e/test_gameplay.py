@@ -525,6 +525,72 @@ def test_last_move_moves_to_latest_piece(two_players: tuple[Page, Page]) -> None
     expect(all_last).to_have_count(1)
 
 
+def test_last_move_only_one_after_many_rapid_moves(two_players: tuple[Page, Page]) -> None:
+    """After many moves played quickly, exactly one cell should have 'last-move'.
+
+    Regression test for overlapping drop-animation handlers re-adding
+    the last-move class to stale cells.
+    """
+    page1, page2 = two_players
+    setup_two_player_game(page1, page2)
+
+    # Play 10 moves in different columns — minimal delay between them
+    moves = [
+        (page1, 3),
+        (page2, 4),
+        (page1, 2),
+        (page2, 5),
+        (page1, 1),
+        (page2, 0),
+        (page1, 6),
+        (page2, 3),
+        (page1, 4),
+        (page2, 2),
+    ]
+
+    for player_page, col in moves:
+        make_move(player_page, col)
+        # Short delay — fast enough to overlap slow animations (feather ~2s)
+        player_page.wait_for_timeout(400)
+
+    # Wait for all animations to fully settle
+    page1.wait_for_timeout(3000)
+
+    # Exactly one cell should have the last-move ring — on both clients
+    for page in (page1, page2):
+        all_last = page.locator("#board .cell.last-move")
+        expect(all_last).to_have_count(1)
+
+
+def test_last_move_correct_cell_after_many_moves(two_players: tuple[Page, Page]) -> None:
+    """The last-move ring should be on the cell where the final move landed."""
+    page1, page2 = two_players
+    setup_two_player_game(page1, page2)
+
+    # Play 6 moves, last move is P2 in column 6
+    moves = [
+        (page1, 0),
+        (page2, 1),
+        (page1, 2),
+        (page2, 3),
+        (page1, 4),
+        (page2, 6),
+    ]
+    for player_page, col in moves:
+        make_move(player_page, col)
+        player_page.wait_for_timeout(400)
+
+    page1.wait_for_timeout(3000)
+
+    # Last move was col 6, should land on row 5 (bottom)
+    last_cell = page1.locator('#board .cell[data-row="5"][data-col="6"].last-move')
+    expect(last_cell).to_have_count(1)
+
+    # Still exactly one total
+    all_last = page1.locator("#board .cell.last-move")
+    expect(all_last).to_have_count(1)
+
+
 # ---------------------------------------------------------------------------
 # Board shake on draw
 # ---------------------------------------------------------------------------
