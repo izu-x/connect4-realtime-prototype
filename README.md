@@ -10,6 +10,10 @@
 > (hot layer) and traceable event history (audit layer) — two concerns that are
 > usually treated separately but interact in every move-based game.
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="Connect 4 game in progress" width="720">
+</p>
+
 ---
 
 ## Table of Contents
