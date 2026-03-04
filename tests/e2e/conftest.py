@@ -206,10 +206,11 @@ def play_to_draw(page1: Page, page2: Page) -> None:
     """Play a full 42-move game that ends in a draw.
 
     Fills columns in *non-adjacent* pairs (0+2, 1+3, 4+6) using an
-    interleaved pattern so that each pair of adjacent columns ends up
-    with opposite starting players.  This prevents any horizontal or
-    diagonal connect-4.  The move sequence respects global turn
-    alternation (P1 on even-indexed turns, P2 on odd).
+    interleaved pattern that produces the 2×2 repeating block shown
+    below. This tiling caps any horizontal, vertical, or diagonal run
+    of identical pieces at length 2, so no connect-4 is ever formed.
+    The move sequence respects global turn alternation (P1 on
+    even-indexed turns, P2 on odd).
 
     Target board (bottom=row 5)::
 
