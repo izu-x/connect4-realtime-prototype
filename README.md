@@ -10,6 +10,8 @@
 > (hot layer) and traceable event history (audit layer) — two concerns that are
 > usually treated separately but interact in every move-based game.
 
+**[Live Demo](https://connect4-realtime-prototype-production.up.railway.app)**
+
 <p align="center">
   <img src="docs/screenshot.png" alt="Connect 4 game in progress" width="720">
 </p>
